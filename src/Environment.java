@@ -2,20 +2,27 @@ import jade.core.AID;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 public class Environment {
     private static Environment instance;
     private int width = 800;
     private int height = 600;
+    
+    // Spatial Partitioning: Grid-based optimization
+    private static final int GRID_CELL_SIZE = 100;
+    private Map<String, List<AgentInfo>> spatialGrid;
+    
     private Map<AID, AgentInfo> agents;
-    private List<Food> foods;  
+    private List<Food> foods;  // FOOD SYSTEM
 
     private static final double COLLISION_DISTANCE = 10.0;
-    private static final int FOOD_ENERGY = 35;  
+    private static final int FOOD_ENERGY = 35;
 
     private Environment() {
         agents = new ConcurrentHashMap<>();
         foods = new CopyOnWriteArrayList<>();
+        spatialGrid = new ConcurrentHashMap<>();
     }
 
     public static synchronized Environment getInstance() {
@@ -25,15 +32,34 @@ public class Environment {
         return instance;
     }
 
-    public synchronized void registerAgent(AID aid, String type, Position position, int energy) {
-        AgentInfo info = new AgentInfo(aid, type, position, energy);
+    // Helper to get grid key
+    private String getGridKey(Position pos) {
+        int x = (int) (pos.getX() / GRID_CELL_SIZE);
+        int y = (int) (pos.getY() / GRID_CELL_SIZE);
+        return x + "," + y;
+    }
+
+    public synchronized void registerAgent(AID aid, String type, Position position, int energy, double speed, double visionRange) {
+        AgentInfo info = new AgentInfo(aid, type, position, energy, speed, visionRange);
         agents.put(aid, info);
+        
+        // Add to grid
+        String key = getGridKey(position);
+        spatialGrid.computeIfAbsent(key, k -> new ArrayList<>()).add(info);
+        
         System.out.println("✓ Registered: " + info);
     }
 
     public synchronized void unregisterAgent(AID aid) {
         AgentInfo removed = agents.remove(aid);
         if (removed != null) {
+            // Remove from grid
+            String key = getGridKey(removed.getPosition());
+            List<AgentInfo> cell = spatialGrid.get(key);
+            if (cell != null) {
+                cell.remove(removed);
+                if (cell.isEmpty()) spatialGrid.remove(key);
+            }
             System.out.println("✗ Removed: " + removed);
         }
     }
@@ -41,20 +67,51 @@ public class Environment {
     public synchronized void updatePosition(AID aid, Position newPosition) {
         AgentInfo info = agents.get(aid);
         if (info != null) {
-            // Garder dans les limites de l'environnement
+            Position oldPos = info.getPosition();
+            String oldKey = getGridKey(oldPos);
+            
+            // Keep within bounds
             double x = Math.max(0, Math.min(width, newPosition.getX()));
             double y = Math.max(0, Math.min(height, newPosition.getY()));
-            info.setPosition(new Position(x, y));
+            Position clampedPos = new Position(x, y);
+            
+            info.setPosition(clampedPos);
+            
+            String newKey = getGridKey(clampedPos);
+            
+            // Update grid if cell changed
+            if (!oldKey.equals(newKey)) {
+                List<AgentInfo> oldCell = spatialGrid.get(oldKey);
+                if (oldCell != null) {
+                    oldCell.remove(info);
+                    if (oldCell.isEmpty()) spatialGrid.remove(oldKey);
+                }
+                spatialGrid.computeIfAbsent(newKey, k -> new ArrayList<>()).add(info);
+            }
         }
     }
 
     public synchronized List<AgentInfo> getNearbyAgents(AID requester, Position position, double radius) {
         List<AgentInfo> nearby = new ArrayList<>();
-        for (Map.Entry<AID, AgentInfo> entry : agents.entrySet()) {
-            if (!entry.getKey().equals(requester)) {
-                AgentInfo info = entry.getValue();
-                if (info.getPosition().distance(position) <= radius) {
-                    nearby.add(info);
+        
+        int cellX = (int) (position.getX() / GRID_CELL_SIZE);
+        int cellY = (int) (position.getY() / GRID_CELL_SIZE);
+        int searchRadius = (int) Math.ceil(radius / GRID_CELL_SIZE);
+
+        // Check neighboring cells
+        for (int dx = -searchRadius; dx <= searchRadius; dx++) {
+            for (int dy = -searchRadius; dy <= searchRadius; dy++) {
+                String key = (cellX + dx) + "," + (cellY + dy);
+                List<AgentInfo> cellAgents = spatialGrid.get(key);
+                
+                if (cellAgents != null) {
+                    for (AgentInfo info : cellAgents) {
+                        if (!info.getAID().equals(requester)) {
+                            if (info.getPosition().distance(position) <= radius) {
+                                nearby.add(info);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -62,8 +119,10 @@ public class Environment {
     }
 
     public synchronized AgentInfo checkPreyCollision(Position predatorPos) {
-        for (AgentInfo info : agents.values()) {
-            if (info.isPrey() && info.getPosition().distance(predatorPos) <= COLLISION_DISTANCE) {
+        // Optimized collision check using grid
+        List<AgentInfo> nearby = getNearbyAgents(null, predatorPos, COLLISION_DISTANCE);
+        for (AgentInfo info : nearby) {
+            if (info.isPrey()) {
                 return info;
             }
         }
@@ -71,23 +130,15 @@ public class Environment {
     }
 
     public synchronized List<AgentInfo> getAllPrey() {
-        List<AgentInfo> preyList = new ArrayList<>();
-        for (AgentInfo info : agents.values()) {
-            if (info.isPrey()) {
-                preyList.add(info);
-            }
-        }
-        return preyList;
+        return agents.values().stream()
+                .filter(AgentInfo::isPrey)
+                .collect(Collectors.toList());
     }
 
     public synchronized List<AgentInfo> getAllPredators() {
-        List<AgentInfo> predatorList = new ArrayList<>();
-        for (AgentInfo info : agents.values()) {
-            if (info.isPredator()) {
-                predatorList.add(info);
-            }
-        }
-        return predatorList;
+        return agents.values().stream()
+                .filter(AgentInfo::isPredator)
+                .collect(Collectors.toList());
     }
 
     public int getWidth() { return width; }
@@ -114,6 +165,7 @@ public class Environment {
         Food nearest = null;
         double minDist = radius;
 
+        // Optimization: Could also grid food, but list is usually smaller than agents
         for (Food food : foods) {
             if (!food.isConsumed()) {
                 double dist = position.distance(food.getPosition());

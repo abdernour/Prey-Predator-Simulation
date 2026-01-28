@@ -25,9 +25,9 @@ public class VisualizerAgent extends Agent {
         // Prey parameters
         public static int PREY_ENERGY_START = 85;
         public static int PREY_ENERGY_MAX = 120;
-        public static int PREY_REPRO_THRESHOLD = 85;
+        public static int PREY_REPRO_THRESHOLD = 80;
         public static int PREY_REPRO_COST = 40;
-        public static double PREY_SPEED = 2.2;
+        public static double PREY_SPEED = 2.4; // Base speed for new agents
 
         // Predator parameters
         public static int PRED_ENERGY_START = 200;
@@ -35,7 +35,7 @@ public class VisualizerAgent extends Agent {
         public static int PRED_ENERGY_GAIN = 50;
         public static int PRED_REPRO_THRESHOLD = 180;
         public static int PRED_REPRO_COST = 70;
-        public static double PRED_SPEED = 2.8;
+        public static double PRED_SPEED = 2.65; // Base speed for new agents
 
         // Food parameters
         public static int FOOD_ENERGY_VALUE = 35;
@@ -112,7 +112,7 @@ public class VisualizerAgent extends Agent {
             frame.setVisible(true);
         });
 
-        addBehaviour(new TickerBehaviour(this, 100) {
+        addBehaviour(new TickerBehaviour(this, 33) { // Increased refresh rate to ~30 FPS
             private int tickCount = 0;
             protected void onTick() {
                 if (!isRunning) return;
@@ -129,8 +129,8 @@ public class VisualizerAgent extends Agent {
                 }
 
                 if (panel != null) panel.repaint();
-                if (chart != null) chart.updateData(environment.getPreyCount(), environment.getPredatorCount());
-                if (parameterPanel != null) {
+                if (chart != null && tickCount % 3 == 0) chart.updateData(environment.getPreyCount(), environment.getPredatorCount());
+                if (parameterPanel != null && tickCount % 10 == 0) {
                     SwingUtilities.invokeLater(() ->
                             parameterPanel.updateLiveStats(environment.getPreyCount(), environment.getPredatorCount(), environment.getFoodCount())
                     );
@@ -264,7 +264,7 @@ public class VisualizerAgent extends Agent {
                     new EmptyBorder(15, 15, 15, 15)
             ));
             card.setAlignmentX(Component.LEFT_ALIGNMENT);
-            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, type.equals("food") ? 180 : 300));
+            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, type.equals("food") ? 180 : 250));
 
             // Header
             JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
@@ -291,14 +291,12 @@ public class VisualizerAgent extends Agent {
                 addPreyParameter(card, "Énergie max", SimParams.PREY_ENERGY_MAX, 50, 300, 10);
                 addPreyParameter(card, "Seuil reprod.", SimParams.PREY_REPRO_THRESHOLD, 30, 150, 5);
                 addPreyParameter(card, "Coût reprod.", SimParams.PREY_REPRO_COST, 10, 100, 5);
-                addPreyParameter(card, "Vitesse (x10)", (int)(SimParams.PREY_SPEED * 10), 5, 50, 1);
             } else if (type.equals("pred")) {
                 addPredParameter(card, "Énergie initiale", SimParams.PRED_ENERGY_START, 50, 400, 10);
                 addPredParameter(card, "Énergie max", SimParams.PRED_ENERGY_MAX, 100, 500, 10);
                 addPredParameter(card, "Gain capture", SimParams.PRED_ENERGY_GAIN, 20, 150, 5);
                 addPredParameter(card, "Seuil reprod.", SimParams.PRED_REPRO_THRESHOLD, 50, 300, 10);
                 addPredParameter(card, "Coût reprod.", SimParams.PRED_REPRO_COST, 20, 150, 5);
-                addPredParameter(card, "Vitesse (x10)", (int)(SimParams.PRED_SPEED * 10), 10, 60, 1);
             } else if (type.equals("food")) {
                 addFoodParameter(card, "Valeur énerg.", SimParams.FOOD_ENERGY_VALUE, 10, 100, 5);
                 addFoodParameter(card, "Taux spawn", SimParams.FOOD_SPAWN_RATE, 1, 50, 1);
@@ -358,7 +356,6 @@ public class VisualizerAgent extends Agent {
                 SimParams.PREY_ENERGY_MAX = (Integer) preySpinners.get("Énergie max").getValue();
                 SimParams.PREY_REPRO_THRESHOLD = (Integer) preySpinners.get("Seuil reprod.").getValue();
                 SimParams.PREY_REPRO_COST = (Integer) preySpinners.get("Coût reprod.").getValue();
-                SimParams.PREY_SPEED = (Integer) preySpinners.get("Vitesse (x10)").getValue() / 10.0;
 
                 // Predator parameters
                 SimParams.PRED_ENERGY_START = (Integer) predSpinners.get("Énergie initiale").getValue();
@@ -366,7 +363,6 @@ public class VisualizerAgent extends Agent {
                 SimParams.PRED_ENERGY_GAIN = (Integer) predSpinners.get("Gain capture").getValue();
                 SimParams.PRED_REPRO_THRESHOLD = (Integer) predSpinners.get("Seuil reprod.").getValue();
                 SimParams.PRED_REPRO_COST = (Integer) predSpinners.get("Coût reprod.").getValue();
-                SimParams.PRED_SPEED = (Integer) predSpinners.get("Vitesse (x10)").getValue() / 10.0;
 
                 // Food parameters
                 SimParams.FOOD_ENERGY_VALUE = (Integer) foodSpinners.get("Valeur énerg.").getValue();
