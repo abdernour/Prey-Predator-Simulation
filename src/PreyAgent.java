@@ -7,10 +7,17 @@ public class PreyAgent extends Agent {
     private int energy;
     private int age;
     private Environment environment;
+    
+    // GENETICS
+    private double mySpeed;
+    private double myVision;
+
+    // STAMINA SYSTEM
+    private int stamina = 100;
+    private static final int MAX_STAMINA = 100;
 
     // Reference to shared parameters (will be updated dynamically)
     private static final int AGE_MAX = 1500;
-    private static final int VISION_RANGE = 100;
     private static final double FOOD_SEARCH_RADIUS = 120.0;
     private static final double FOOD_EAT_DISTANCE = 20.0;
     private static final int REPRO_COOLDOWN = 300;
@@ -19,8 +26,18 @@ public class PreyAgent extends Agent {
         environment = Environment.getInstance();
         Object[] args = getArguments();
 
+        // Default Genetics
+        mySpeed = VisualizerAgent.SimParams.PREY_SPEED;
+        myVision = 100.0;
+
         if (args != null && args.length >= 2) {
             position = new Position((Double) args[0], (Double) args[1]);
+            
+            // Inherit genetics if provided
+            if (args.length >= 4) {
+                mySpeed = (Double) args[2];
+                myVision = (Double) args[3];
+            }
         } else {
             position = new Position(
                     Math.random() * environment.getWidth(),
@@ -30,7 +47,7 @@ public class PreyAgent extends Agent {
 
         energy = VisualizerAgent.SimParams.PREY_ENERGY_START;
         age = 0;
-        environment.registerAgent(getAID(), "PREY", position, energy);
+        environment.registerAgent(getAID(), "PREY", position, energy, mySpeed, myVision);
 
         addBehaviour(new PreyBehaviour());
     }
@@ -53,21 +70,25 @@ public class PreyAgent extends Agent {
             // Age & Energy
             age++;
 
-            // Lose energy every 3 cycles (slower)
+            // Lose energy every 3 cycles
             if (age % 3 == 0) {
-                energy -= 1; // ENERGY_LOSS constant
+                energy -= 1; 
+                // Faster agents burn more energy!
+                if (mySpeed > VisualizerAgent.SimParams.PREY_SPEED * 1.2) {
+                    energy -= 1; // Extra cost for high speed
+                }
             }
 
             reproductionCooldown--;
 
-            // Death conditions - use dynamic ENERGY_MAX for comparison
+            // Death conditions
             if (energy <= 0 || age > AGE_MAX) {
                 myAgent.doDelete();
                 return;
             }
 
-            // Perception
-            List<AgentInfo> nearby = environment.getNearbyAgents(getAID(), position, VISION_RANGE);
+            // Perception - Use GENETIC vision
+            List<AgentInfo> nearby = environment.getNearbyAgents(getAID(), position, myVision);
             List<AgentInfo> predators = nearby.stream().filter(AgentInfo::isPredator).toList();
             List<AgentInfo> nearbyPrey = nearby.stream().filter(AgentInfo::isPrey).toList();
 
@@ -75,50 +96,53 @@ public class PreyAgent extends Agent {
             if (!predators.isEmpty()) {
                 // FLEE from predators (priority #1)
                 flee(predators);
-            } else if (nearbyPrey.size() > 8) {
-                // TOO CROWDED - disperse! (priority #2)
-                disperseFromCrowd(nearbyPrey);
             } else {
-                // Look for food when safe
-                Food nearestFood = environment.findNearestFood(position, FOOD_SEARCH_RADIUS);
+                // Recover Stamina when safe
+                if (stamina < MAX_STAMINA) stamina++;
 
-                if (nearestFood != null) {
-                    // Move towards food
-                    double dist = position.distance(nearestFood.getPosition());
+                if (nearbyPrey.size() > 8) {
+                    // TOO CROWDED - disperse! (priority #2)
+                    disperseFromCrowd(nearbyPrey);
+                } else {
+                    // Look for food when safe
+                    Food nearestFood = environment.findNearestFood(position, FOOD_SEARCH_RADIUS);
 
-                    if (dist <= FOOD_EAT_DISTANCE) {
-                        // EAT THE FOOD! - Use dynamic food energy value
-                        if (environment.consumeFood(nearestFood)) {
-                            energy = Math.min(VisualizerAgent.SimParams.PREY_ENERGY_MAX,
-                                    energy + nearestFood.getEnergyValue());
-                            System.out.println("🍃 " + getLocalName() + " ate food (E:" + energy + ")");
+                    if (nearestFood != null) {
+                        // Move towards food
+                        double dist = position.distance(nearestFood.getPosition());
+
+                        if (dist <= FOOD_EAT_DISTANCE) {
+                            // EAT THE FOOD!
+                            if (environment.consumeFood(nearestFood)) {
+                                energy = Math.min(VisualizerAgent.SimParams.PREY_ENERGY_MAX,
+                                        energy + nearestFood.getEnergyValue());
+                            }
+                        } else {
+                            // Chase the food
+                            double dx = nearestFood.getPosition().getX() - position.getX();
+                            double dy = nearestFood.getPosition().getY() - position.getY();
+                            double foodSpeed = (energy < 50) ? mySpeed * 1.5 : mySpeed;
+                            position = position.moveTo(dx, dy, foodSpeed);
                         }
                     } else {
-                        // Chase the food (faster when hungry!)
-                        double dx = nearestFood.getPosition().getX() - position.getX();
-                        double dy = nearestFood.getPosition().getY() - position.getY();
-                        double foodSpeed = (energy < 50) ? VisualizerAgent.SimParams.PREY_SPEED * 1.5
-                                : VisualizerAgent.SimParams.PREY_SPEED;
-                        position = position.moveTo(dx, dy, foodSpeed);
-                    }
-                } else {
-                    // No food nearby - still gain some energy (grazing)
-                    if (Math.random() < 0.30) { // 30% chance - easier survival
-                        energy = Math.min(VisualizerAgent.SimParams.PREY_ENERGY_MAX, energy + 12);
+                        // No food nearby - minimal grazing
+                        if (Math.random() < 0.10) { 
+                            energy = Math.min(VisualizerAgent.SimParams.PREY_ENERGY_MAX, energy + 2);
+                        }
+
+                        // Random walk
+                        position = position.randomMove(mySpeed * 0.7,
+                                environment.getWidth(),
+                                environment.getHeight());
                     }
 
-                    // Random walk - use dynamic speed
-                    position = position.randomMove(VisualizerAgent.SimParams.PREY_SPEED * 0.7,
-                            environment.getWidth(),
-                            environment.getHeight());
-                }
-
-                // Try to reproduce - use dynamic thresholds
-                if (energy >= VisualizerAgent.SimParams.PREY_REPRO_THRESHOLD && reproductionCooldown <= 0) {
-                    if (Math.random() < 0.20) {
-                        List<AgentInfo> partners = nearby.stream().filter(AgentInfo::isPrey).toList();
-                        if (!partners.isEmpty() && partners.size() < 8) {
-                            reproduce();
+                    // Try to reproduce
+                    if (energy >= VisualizerAgent.SimParams.PREY_REPRO_THRESHOLD && reproductionCooldown <= 0) {
+                        if (Math.random() < 0.20) {
+                            List<AgentInfo> partners = nearby.stream().filter(AgentInfo::isPrey).toList();
+                            if (!partners.isEmpty() && partners.size() < 8) {
+                                reproduce();
+                            }
                         }
                     }
                 }
@@ -134,7 +158,6 @@ public class PreyAgent extends Agent {
         }
 
         private void flee(List<AgentInfo> predators) {
-            // Calculate average predator position
             double predX = 0, predY = 0;
             for (AgentInfo pred : predators) {
                 predX += pred.getPosition().getX();
@@ -143,24 +166,40 @@ public class PreyAgent extends Agent {
             predX /= predators.size();
             predY /= predators.size();
 
-            // Direction away from predators (Flee Vector)
             double fleeX = position.getX() - predX;
             double fleeY = position.getY() - predY;
 
-            // Flee at 1.5 times base speed - use dynamic speed
-            double speed = VisualizerAgent.SimParams.PREY_SPEED * 1.5;
-            position = position.moveTo(fleeX, fleeY, speed);
+            // STAMINA LOGIC
+            double currentSpeed = mySpeed;
+            if (stamina > 10) {
+                currentSpeed = mySpeed * 1.5; // Sprint!
+                stamina -= 2; // Burn stamina
+            } else {
+                // Exhausted - can't sprint
+                currentSpeed = mySpeed * 0.8; // Slower when tired
+            }
+
+            position = position.moveTo(fleeX, fleeY, currentSpeed);
         }
 
         private void reproduce() {
-            // Use dynamic reproduction cost
             energy -= VisualizerAgent.SimParams.PREY_REPRO_COST;
             reproductionCooldown = REPRO_COOLDOWN;
 
             try {
+                // MUTATION: +/- 10%
+                double childSpeed = mySpeed * (0.90 + Math.random() * 0.20);
+                double childVision = myVision * (0.90 + Math.random() * 0.20);
+                
+                // Clamp values
+                childSpeed = Math.max(1.0, Math.min(5.0, childSpeed));
+                childVision = Math.max(50, Math.min(200, childVision));
+
                 Object[] args = new Object[]{
                         position.getX() + (Math.random() - 0.5) * 40,
-                        position.getY() + (Math.random() - 0.5) * 40
+                        position.getY() + (Math.random() - 0.5) * 40,
+                        childSpeed,
+                        childVision
                 };
                 String name = "Prey_" + System.nanoTime();
                 getContainerController().createNewAgent(name, "PreyAgent", args).start();
@@ -168,7 +207,6 @@ public class PreyAgent extends Agent {
         }
 
         private void disperseFromCrowd(List<AgentInfo> nearbyAgents) {
-            // Calculate center of the crowd
             double avgX = 0, avgY = 0;
             for (AgentInfo other : nearbyAgents) {
                 avgX += other.getPosition().getX();
@@ -177,15 +215,12 @@ public class PreyAgent extends Agent {
             avgX /= nearbyAgents.size();
             avgY /= nearbyAgents.size();
 
-            // Move AWAY from crowd center
             double disperseX = position.getX() - avgX;
             double disperseY = position.getY() - avgY;
 
-            // Add randomness
             disperseX += (Math.random() - 0.5) * 100;
             disperseY += (Math.random() - 0.5) * 100;
 
-            // Move the agent slowly away
             position = new Position(
                     position.getX() + disperseX * 0.05,
                     position.getY() + disperseY * 0.05
