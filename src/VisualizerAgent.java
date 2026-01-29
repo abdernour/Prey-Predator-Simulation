@@ -27,15 +27,15 @@ public class VisualizerAgent extends Agent {
         public static int PREY_ENERGY_MAX = 120;
         public static int PREY_REPRO_THRESHOLD = 80;
         public static int PREY_REPRO_COST = 40;
-        public static double PREY_SPEED = 2.4; // Base speed for new agents
+        public static double PREY_SPEED = 2.4; 
 
         // Predator parameters
         public static int PRED_ENERGY_START = 200;
         public static int PRED_ENERGY_MAX = 300;
-        public static int PRED_ENERGY_GAIN = 50;
-        public static int PRED_REPRO_THRESHOLD = 180;
-        public static int PRED_REPRO_COST = 70;
-        public static double PRED_SPEED = 2.65; // Base speed for new agents
+        public static int PRED_ENERGY_GAIN = 40;
+        public static int PRED_REPRO_THRESHOLD = 220;
+        public static int PRED_REPRO_COST = 110;
+        public static double PRED_SPEED = 2.65;
 
         // Food parameters
         public static int FOOD_ENERGY_VALUE = 35;

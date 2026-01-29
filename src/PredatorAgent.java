@@ -11,10 +11,13 @@ public class PredatorAgent extends Agent {
     private double mySpeed;
     private double myVision;
 
+    // MOVEMENT PERSISTENCE
+    private double wanderAngle = Math.random() * 2 * Math.PI;
+
     // BRAIN (State Machine)
     private enum State { SCOUTING, HUNTING, RESTING }
     private State currentState = State.SCOUTING;
-    private int stamina = 100; // New resource!
+    private int stamina = 100;
     private static final int MAX_STAMINA = 100;
 
     // Static constants
@@ -68,20 +71,17 @@ public class PredatorAgent extends Agent {
             cycleCount++;
             handleCooldowns();
             
-            // 1. Check Vital Signs
             if (energy <= 0) {
                 System.out.println("💀 " + getLocalName() + " starved");
                 myAgent.doDelete();
                 return;
             }
 
-            // 2. Perception
             List<AgentInfo> nearby = environment.getNearbyAgents(getAID(), position, myVision);
             List<AgentInfo> preyList = nearby.stream()
                     .filter(info -> info.isPrey() && !info.getAID().equals(getAID()))
                     .toList();
 
-            // 3. STATE MACHINE LOGIC
             switch (currentState) {
                 case RESTING:
                     handleRestingState();
@@ -95,10 +95,8 @@ public class PredatorAgent extends Agent {
                     break;
             }
 
-            // 4. Physics & Updates
             updatePositionAndStats();
             
-            // 5. Reproduction (Only if healthy)
             if (currentState != State.HUNTING && energy >= VisualizerAgent.SimParams.PRED_REPRO_THRESHOLD) {
                 tryReproduce(nearby);
             }
@@ -106,83 +104,101 @@ public class PredatorAgent extends Agent {
             try { Thread.sleep(40); } catch (Exception e) {}
         }
 
-        // --- STATE HANDLERS ---
-
         private void handleRestingState() {
-            // Recover Stamina SLOWLY
-            stamina += 1; // Was 2
+            // Recover Stamina
+            stamina += 1;
             if (stamina >= MAX_STAMINA) {
                 stamina = MAX_STAMINA;
-                currentState = State.SCOUTING; // Back to work
+                currentState = State.SCOUTING;
             }
-            // Don't move while resting!
+            
+            // Move very slowly (limping/tired)
+            wanderAngle += (Math.random() - 0.5) * 0.2;
+            double dx = Math.cos(wanderAngle);
+            double dy = Math.sin(wanderAngle);
+            
+            position = new Position(
+                    position.getX() + dx * mySpeed * 0.2,
+                    position.getY() + dy * mySpeed * 0.2
+            );
+            
+            checkBoundsBounce();
         }
 
         private void handleHuntingState(List<AgentInfo> preyList) {
-            // Burn Stamina very fast!
-            stamina -= 4; // Was 2
+            stamina -= 2;
             
             if (stamina <= 0) {
-                currentState = State.RESTING; // Exhausted! Give up chase.
+                currentState = State.RESTING;
                 return;
             }
 
             if (preyList.isEmpty()) {
-                currentState = State.SCOUTING; // Lost target
+                currentState = State.SCOUTING;
                 return;
             }
 
-            // Chase closest prey
             AgentInfo target = findClosest(preyList);
             double dist = position.distance(target.getPosition());
 
             if (dist <= CATCH_DISTANCE && eatingCooldown <= 0) {
                 capture(target);
-                currentState = State.SCOUTING; // Relax after eating
+                currentState = State.SCOUTING;
             } else {
-                // SPRINT: Move at 1.25x speed (nerfed from 1.4x)
-                moveTo(target.getPosition(), mySpeed * 1.25);
+                // Update angle to face target
+                double dx = target.getPosition().getX() - position.getX();
+                double dy = target.getPosition().getY() - position.getY();
+                wanderAngle = Math.atan2(dy, dx);
+                
+                moveTo(target.getPosition(), mySpeed * 1.5);
             }
         }
 
         private void handleScoutingState(List<AgentInfo> preyList, List<AgentInfo> nearby) {
-            // Recover Stamina slowly while walking
             if (stamina < MAX_STAMINA) stamina++;
 
-            // Transition to HUNTING if prey seen and we have energy
             if (!preyList.isEmpty() && stamina > 30 && eatingCooldown <= 0) {
                 currentState = State.HUNTING;
                 return;
             }
 
-            // Avoid Crowds
             List<AgentInfo> nearbyPredators = nearby.stream()
                     .filter(AgentInfo::isPredator).toList();
             
             if (nearbyPredators.size() > 3) {
                 disperseFromCrowd(nearbyPredators);
             } else {
-                // Random Patrol
-                double angle = Math.random() * 2 * Math.PI;
+                // Smooth Wander
+                wanderAngle += (Math.random() - 0.5) * 0.4;
+                
+                double dx = Math.cos(wanderAngle);
+                double dy = Math.sin(wanderAngle);
+                
                 position = new Position(
-                        position.getX() + Math.cos(angle) * mySpeed * 0.5, // Walk slower
-                        position.getY() + Math.sin(angle) * mySpeed * 0.5
+                        position.getX() + dx * mySpeed * 0.6,
+                        position.getY() + dy * mySpeed * 0.6
                 );
+                
+                checkBoundsBounce();
             }
         }
 
-        // --- HELPER METHODS ---
+        private void checkBoundsBounce() {
+            if (position.getX() <= 30 || position.getX() >= environment.getWidth() - 30) {
+                wanderAngle = Math.PI - wanderAngle;
+            }
+            if (position.getY() <= 30 || position.getY() >= environment.getHeight() - 30) {
+                wanderAngle = -wanderAngle;
+            }
+        }
 
         private void handleCooldowns() {
             if (reproductionCooldown > 0) reproductionCooldown--;
             if (eatingCooldown > 0) eatingCooldown--;
-            
-            // Base metabolism
             if (cycleCount % 4 == 0) energy -= ENERGY_LOSS;
         }
 
         private void updatePositionAndStats() {
-            // Keep bounds
             double x = Math.max(30, Math.min(environment.getWidth() - 30, position.getX()));
             double y = Math.max(30, Math.min(environment.getHeight() - 30, position.getY()));
             position.setX(x);
@@ -267,6 +283,8 @@ public class PredatorAgent extends Agent {
             
             double dx = position.getX() - avgX;
             double dy = position.getY() - avgY;
+            
+            wanderAngle = Math.atan2(dy, dx);
             
             position = new Position(
                     position.getX() + dx * 0.1 + (Math.random()-0.5)*10,
