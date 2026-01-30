@@ -19,6 +19,12 @@ public class PreyAgent extends Agent {
     private int stamina = 100;
     private static final int MAX_STAMINA = 100;
 
+    // FLOCKING PARAMETERS
+    private static final double SEPARATION_WEIGHT = 1.5;
+    private static final double ALIGNMENT_WEIGHT = 1.0;
+    private static final double COHESION_WEIGHT = 1.0;
+    private static final double FLOCKING_RADIUS = 60.0;
+
     // Reference to shared parameters
     private static final int AGE_MAX = 1500;
     private static final double FOOD_SEARCH_RADIUS = 120.0;
@@ -87,13 +93,9 @@ public class PreyAgent extends Agent {
             }
 
             // TERRAIN CHECKS
-            boolean inForest = environment.isInForest(position);
             boolean inSwamp = environment.isInSwamp(position);
 
             // Perception
-            // If in forest, we are harder to see, but we also see less? 
-            // For now, let's say forest protects us from being seen (handled in Predator logic)
-            
             List<AgentInfo> nearby = environment.getNearbyAgents(getAID(), position, myVision);
             List<AgentInfo> predators = nearby.stream().filter(AgentInfo::isPredator).toList();
             List<AgentInfo> nearbyPrey = nearby.stream().filter(AgentInfo::isPrey).toList();
@@ -105,55 +107,42 @@ public class PreyAgent extends Agent {
                 // Recover Stamina
                 if (stamina < MAX_STAMINA) stamina++;
 
-                if (nearbyPrey.size() > 8) {
-                    disperseFromCrowd(nearbyPrey, inSwamp);
-                } else {
-                    Food nearestFood = environment.findNearestFood(position, FOOD_SEARCH_RADIUS);
+                Food nearestFood = environment.findNearestFood(position, FOOD_SEARCH_RADIUS);
 
-                    if (nearestFood != null) {
-                        // Move towards food
-                        double dist = position.distance(nearestFood.getPosition());
+                if (nearestFood != null) {
+                    // FOOD PRIORITY
+                    double dist = position.distance(nearestFood.getPosition());
 
-                        if (dist <= FOOD_EAT_DISTANCE) {
-                            if (environment.consumeFood(nearestFood)) {
-                                energy = Math.min(VisualizerAgent.SimParams.PREY_ENERGY_MAX,
-                                        energy + nearestFood.getEnergyValue());
-                            }
-                        } else {
-                            double dx = nearestFood.getPosition().getX() - position.getX();
-                            double dy = nearestFood.getPosition().getY() - position.getY();
-                            
-                            double speed = (energy < 50) ? mySpeed * 1.5 : mySpeed;
-                            if (inSwamp) speed *= 0.5; // Swamp slows down
-                            
-                            position = position.moveTo(dx, dy, speed);
-                            wanderAngle = Math.atan2(dy, dx);
+                    if (dist <= FOOD_EAT_DISTANCE) {
+                        if (environment.consumeFood(nearestFood)) {
+                            energy = Math.min(VisualizerAgent.SimParams.PREY_ENERGY_MAX,
+                                    energy + nearestFood.getEnergyValue());
                         }
                     } else {
-                        // WANDER LOGIC
-                        wanderAngle += (Math.random() - 0.5) * 0.15;
+                        double dx = nearestFood.getPosition().getX() - position.getX();
+                        double dy = nearestFood.getPosition().getY() - position.getY();
                         
-                        double dx = Math.cos(wanderAngle);
-                        double dy = Math.sin(wanderAngle);
+                        double speed = (energy < 50) ? mySpeed * 1.5 : mySpeed;
+                        if (inSwamp) speed *= 0.5;
                         
-                        double speed = mySpeed * 0.8;
-                        if (inSwamp) speed *= 0.5; // Swamp slows down
-                        
-                        position = new Position(
-                                position.getX() + dx * speed,
-                                position.getY() + dy * speed
-                        );
-                        
-                        checkBoundsBounce();
+                        position = position.moveTo(dx, dy, speed);
+                        wanderAngle = Math.atan2(dy, dx);
                     }
+                } else {
+                    // FLOCKING BEHAVIOR
+                    if (nearbyPrey.size() > 0) {
+                        applyFlocking(nearbyPrey, inSwamp);
+                    } else {
+                        // Wander
+                        wander(inSwamp);
+                    }
+                }
 
-                    // Try to reproduce
-                    if (energy >= VisualizerAgent.SimParams.PREY_REPRO_THRESHOLD && reproductionCooldown <= 0) {
-                        if (Math.random() < 0.20) {
-                            List<AgentInfo> partners = nearby.stream().filter(AgentInfo::isPrey).toList();
-                            if (!partners.isEmpty() && partners.size() < 8) {
-                                reproduce();
-                            }
+                // Try to reproduce
+                if (energy >= VisualizerAgent.SimParams.PREY_REPRO_THRESHOLD && reproductionCooldown <= 0) {
+                    if (Math.random() < 0.20) {
+                        if (!nearbyPrey.isEmpty() && nearbyPrey.size() < 15) { // Allow larger herds
+                            reproduce();
                         }
                     }
                 }
@@ -166,6 +155,85 @@ public class PreyAgent extends Agent {
             environment.updatePosition(getAID(), position);
 
             try { Thread.sleep(30); } catch (Exception e) {}
+        }
+
+        private void applyFlocking(List<AgentInfo> flock, boolean inSwamp) {
+            double sepX = 0, sepY = 0;
+            double alignX = 0, alignY = 0;
+            
+            double cohX = 0, cohY = 0;
+            int count = 0;
+
+            for (AgentInfo other : flock) {
+                double d = position.distance(other.getPosition());
+                if (d > 0 && d < FLOCKING_RADIUS) {
+                    // Separation: Move away from neighbors who are too close
+                    if (d < 25.0) {
+                        double pushX = position.getX() - other.getPosition().getX();
+                        double pushY = position.getY() - other.getPosition().getY();
+                        sepX += pushX / d; // Weight by distance
+                        sepY += pushY / d;
+                    }
+
+                    // Cohesion: Move towards center of mass
+                    cohX += other.getPosition().getX();
+                    cohY += other.getPosition().getY();
+                    
+                    count++;
+                }
+            }
+
+            if (count > 0) {
+                // Finish Cohesion calculation
+                cohX /= count;
+                cohY /= count;
+                // Vector towards center
+                cohX = (cohX - position.getX()) / 100.0; // Move 1% towards center
+                cohY = (cohY - position.getY()) / 100.0;
+            }
+
+            // Combine forces
+            double moveX = (sepX * SEPARATION_WEIGHT) + (cohX * COHESION_WEIGHT);
+            double moveY = (sepY * SEPARATION_WEIGHT) + (cohY * COHESION_WEIGHT);
+
+            // Add a bit of wander so the flock keeps moving
+            wanderAngle += (Math.random() - 0.5) * 0.2;
+            moveX += Math.cos(wanderAngle) * 0.5;
+            moveY += Math.sin(wanderAngle) * 0.5;
+
+            // Apply movement
+            double speed = mySpeed * 0.8; // Cruising speed
+            if (inSwamp) speed *= 0.5;
+
+            // Normalize and apply speed
+            double dist = Math.sqrt(moveX * moveX + moveY * moveY);
+            if (dist > 0) {
+                moveX /= dist;
+                moveY /= dist;
+                position = new Position(
+                    position.getX() + moveX * speed,
+                    position.getY() + moveY * speed
+                );
+                // Update wander angle to match flock direction
+                wanderAngle = Math.atan2(moveY, moveX);
+            }
+            
+            checkBoundsBounce();
+        }
+
+        private void wander(boolean inSwamp) {
+            wanderAngle += (Math.random() - 0.5) * 0.15;
+            double dx = Math.cos(wanderAngle);
+            double dy = Math.sin(wanderAngle);
+            
+            double speed = mySpeed * 0.8;
+            if (inSwamp) speed *= 0.5;
+            
+            position = new Position(
+                    position.getX() + dx * speed,
+                    position.getY() + dy * speed
+            );
+            checkBoundsBounce();
         }
 
         private void checkBoundsBounce() {
@@ -199,7 +267,7 @@ public class PreyAgent extends Agent {
                 currentSpeed = mySpeed * 0.9;
             }
             
-            if (inSwamp) currentSpeed *= 0.5; // Swamp slows down flee
+            if (inSwamp) currentSpeed *= 0.5;
 
             position = position.moveTo(fleeX, fleeY, currentSpeed);
         }
@@ -227,7 +295,8 @@ public class PreyAgent extends Agent {
         }
 
         private void disperseFromCrowd(List<AgentInfo> nearbyAgents, boolean inSwamp) {
-            double avgX = 0, avgY = 0;
+            // Handle extreme overcrowding
+             double avgX = 0, avgY = 0;
             for (AgentInfo other : nearbyAgents) {
                 avgX += other.getPosition().getX();
                 avgY += other.getPosition().getY();
