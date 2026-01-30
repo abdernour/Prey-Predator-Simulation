@@ -84,19 +84,23 @@ public class PredatorAgent extends Agent {
             // PERCEPTION
             List<AgentInfo> nearby = environment.getNearbyAgents(getAID(), position, myVision);
             
-            // Filter visible prey
+            // Filter visible prey (Forest Logic)
             List<AgentInfo> preyList = nearby.stream()
                     .filter(info -> {
                         if (!info.isPrey()) return false;
                         if (info.getAID().equals(getAID())) return false;
                         
-                        // If prey is in forest, reduce visibility distance
                         if (environment.isInForest(info.getPosition())) {
                             return position.distance(info.getPosition()) < (myVision * 0.3);
                         }
                         return true;
                     })
                     .collect(Collectors.toList());
+
+            // PACK TACTICS: Check for hunting partners
+            // We can't easily see other agents' internal state (HUNTING/SCOUTING) directly 
+            // without messaging, but we can infer it: if a predator is moving fast, it's hunting.
+            // For simplicity, let's say if we see a predator close to prey, we join in.
 
             switch (currentState) {
                 case RESTING:
@@ -121,14 +125,12 @@ public class PredatorAgent extends Agent {
         }
 
         private void handleRestingState(boolean inSwamp) {
-            // Recover Stamina
             stamina += 1;
             if (stamina >= MAX_STAMINA) {
                 stamina = MAX_STAMINA;
                 currentState = State.SCOUTING;
             }
             
-            // Move very slowly
             wanderAngle += (Math.random() - 0.5) * 0.2;
             double dx = Math.cos(wanderAngle);
             double dy = Math.sin(wanderAngle);
@@ -145,7 +147,6 @@ public class PredatorAgent extends Agent {
         }
 
         private void handleHuntingState(List<AgentInfo> preyList, boolean inSwamp) {
-            // Burn Stamina (Double cost in swamp)
             stamina -= inSwamp ? 4 : 2;
             
             if (stamina <= 0) {
@@ -179,13 +180,49 @@ public class PredatorAgent extends Agent {
         private void handleScoutingState(List<AgentInfo> preyList, List<AgentInfo> nearby, boolean inSwamp) {
             if (stamina < MAX_STAMINA) stamina++;
 
+
             if (!preyList.isEmpty() && stamina > 30 && eatingCooldown <= 0) {
                 currentState = State.HUNTING;
                 return;
             }
 
+            // PACK LOGIC
+            // If we see a predator running fast (speed > base speed), assume it's hunting
+            // and move towards it to join the pack.
+            List<AgentInfo> huntingPartners = nearby.stream()
+                    .filter(info -> info.isPredator() && !info.getAID().equals(getAID()))
+                    // Heuristic: If they are moving fast, they are hunting. 
+                    // Since we don't have their velocity vector, we can check if they are near prey.
+                    .filter(pred -> {
+                        // Is this predator close to any prey I can see?
+                        for (AgentInfo prey : preyList) {
+                            if (pred.getPosition().distance(prey.getPosition()) < 150) return true;
+                        }
+                        return false;
+                    })
+                    .collect(Collectors.toList());
+
+            if (!huntingPartners.isEmpty() && stamina > 50) {
+                // Join the hunt! Move towards the partner.
+                AgentInfo partner = huntingPartners.get(0);
+                double dx = partner.getPosition().getX() - position.getX();
+                double dy = partner.getPosition().getY() - position.getY();
+                wanderAngle = Math.atan2(dy, dx);
+                
+                // Move faster than scouting to catch up
+                double speed = mySpeed * 1.1; 
+                if (inSwamp) speed *= 0.5;
+                
+                position = new Position(
+                        position.getX() + Math.cos(wanderAngle) * speed,
+                        position.getY() + Math.sin(wanderAngle) * speed
+                );
+                return;
+            }
+
+            // 3. Standard Scouting
             List<AgentInfo> nearbyPredators = nearby.stream()
-                    .filter(AgentInfo::isPredator).toList();
+                    .filter(AgentInfo::isPredator).collect(Collectors.toList());
             
             if (nearbyPredators.size() > 3) {
                 disperseFromCrowd(nearbyPredators, inSwamp);
@@ -275,7 +312,7 @@ public class PredatorAgent extends Agent {
         private void tryReproduce(List<AgentInfo> nearby) {
             if (reproductionCooldown > 0) return;
             
-            List<AgentInfo> partners = nearby.stream().filter(AgentInfo::isPredator).toList();
+            List<AgentInfo> partners = nearby.stream().filter(AgentInfo::isPredator).collect(Collectors.toList());
             if (partners.size() < 3 && Math.random() < 0.05) {
                 reproduce();
             }
