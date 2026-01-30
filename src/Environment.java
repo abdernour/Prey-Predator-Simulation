@@ -4,26 +4,33 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import java.awt.Shape;
-import java.awt.geom.Rectangle2D;
+import java.awt.geom.Area;
 import java.awt.geom.Ellipse2D;
-import java.awt.geom.Path2D;
+import java.awt.geom.GeneralPath;
+import java.awt.Polygon;
 
 public class Environment {
     private static Environment instance;
     private int width = 800;
     private int height = 600;
-
+    
     // Spatial Partitioning
     private static final int GRID_CELL_SIZE = 100;
     private Map<String, List<AgentInfo>> spatialGrid;
-
+    
     private Map<AID, AgentInfo> agents;
     private List<Food> foods;
 
-    // TERRAIN
-    private List<Shape> forests;    // Forest zones (clusters of circles)
-    private List<Shape> swamps;     // Swamp zones (irregular ovals)
-    private List<Shape> rocks;      // Rock obstacles (varied shapes)
+    // terrain clusters
+    private List<Shape> forestTrees; // All trees from all clusters
+    private List<Shape> swamps;
+    private List<Shape> rocks;
+
+    // seasons
+    public enum Season { SPRING, SUMMER, AUTUMN, WINTER }
+    private Season currentSeason = Season.SPRING;
+    private int seasonTick = 0;
+    private static final int SEASON_DURATION = 300; // ~30 seconds at 10 ticks/sec
 
     private static final double COLLISION_DISTANCE = 10.0;
     private static final int FOOD_ENERGY = 35;
@@ -32,143 +39,122 @@ public class Environment {
         agents = new ConcurrentHashMap<>();
         foods = new CopyOnWriteArrayList<>();
         spatialGrid = new ConcurrentHashMap<>();
-
+        
         initTerrain();
     }
 
     private void initTerrain() {
-        forests = new ArrayList<>();
+        forestTrees = new ArrayList<>();
         swamps = new ArrayList<>();
         rocks = new ArrayList<>();
         Random rand = new Random();
+        List<Position> featureCenters = new ArrayList<>();
 
-        // Track occupied center points to avoid overlap
-        List<Point2D> occupied = new ArrayList<>();
-
-        // 1. FORESTS
-        int numForests = 3 + rand.nextInt(2);
-        for (int f = 0; f < numForests; f++) {
-            // Pick a forest center
-            double centerX = 100 + rand.nextDouble() * (width - 200);
-            double centerY = 100 + rand.nextDouble() * (height - 200);
-
-            // Check if too close to existing features
-            boolean validSpot = true;
-            for (Point2D p : occupied) {
-                if (Math.hypot(centerX - p.x, centerY - p.y) < 150) {
-                    validSpot = false;
-                    break;
-                }
-            }
-
-            if (!validSpot) continue;
-            occupied.add(new Point2D(centerX, centerY));
-
-            // Create a cluster of trees around this center (5-8 trees per cluster)
-            int numTrees = 5 + rand.nextInt(4);
-            for (int t = 0; t < numTrees; t++) {
-                double angle = rand.nextDouble() * 2 * Math.PI;
-                double distance = rand.nextDouble() * 40; // Trees cluster within 40px radius
-                double x = centerX + Math.cos(angle) * distance;
-                double y = centerY + Math.sin(angle) * distance;
-
-                // Create irregular tree shape
-                Path2D.Double tree = new Path2D.Double();
-                double size = 15 + rand.nextDouble() * 15;
-                tree.append(new Ellipse2D.Double(x - size/2, y - size/2, size, size), false);
-
-                // Add 1-2 more circles to make it irregular
-                for (int extra = 0; extra < 1 + rand.nextInt(2); extra++) {
-                    double ox = x + (rand.nextDouble() - 0.5) * size * 0.7;
-                    double oy = y + (rand.nextDouble() - 0.5) * size * 0.7;
-                    double extraSize = size * (0.6 + rand.nextDouble() * 0.4);
-                    tree.append(new Ellipse2D.Double(ox - extraSize/2, oy - extraSize/2, extraSize, extraSize), false);
-                }
-
-                forests.add(tree);
-            }
-        }
-
-        // 2. SWAMPS
+        // 1. swamps
         int numSwamps = 3 + rand.nextInt(2);
-        for (int s = 0; s < numSwamps; s++) {
-            double x = 100 + rand.nextDouble() * (width - 200);
-            double y = 100 + rand.nextDouble() * (height - 200);
-
-            // Check spacing
-            boolean validSpot = true;
-            for (Point2D p : occupied) {
-                if (Math.hypot(x - p.x, y - p.y) < 120) {
-                    validSpot = false;
-                    break;
-                }
+        for (int i = 0; i < numSwamps; i++) {
+            Position center = findValidPosition(featureCenters, 150, rand);
+            if (center != null) {
+                featureCenters.add(center);
+                swamps.add(createOrganicBlob(center.getX(), center.getY(), 60, 100, 8, 13, rand));
             }
-
-            if (!validSpot) continue;
-            occupied.add(new Point2D(x, y));
-
-            // Create organic swamp shape
-            Path2D.Double swamp = new Path2D.Double();
-            int numPoints = 8 + rand.nextInt(5);
-            double baseRadius = 30 + rand.nextDouble() * 20;
-
-            for (int i = 0; i < numPoints; i++) {
-                double angle = (2 * Math.PI * i) / numPoints;
-                // Vary radius for each point to create organic shape
-                double radius = baseRadius * (0.7 + rand.nextDouble() * 0.6);
-                double px = x + Math.cos(angle) * radius;
-                double py = y + Math.sin(angle) * radius * 0.7; // Make it more oval
-
-                if (i == 0) {
-                    swamp.moveTo(px, py);
-                } else {
-                    swamp.lineTo(px, py);
-                }
-            }
-            swamp.closePath();
-
-            swamps.add(swamp);
         }
 
-        // 3. ROCKS
+        // 2. rocks
         int numRocks = 5 + rand.nextInt(3);
-        for (int r = 0; r < numRocks; r++) {
-            double x = 80 + rand.nextDouble() * (width - 160);
-            double y = 80 + rand.nextDouble() * (height - 160);
+        for (int i = 0; i < numRocks; i++) {
+            Position center = findValidPosition(featureCenters, 100, rand);
+            if (center != null) {
+                featureCenters.add(center);
+                rocks.add(createPolygonRock(center.getX(), center.getY(), 30, 50, 5, 8, rand));
+            }
+        }
 
-            // Check spacing
-            boolean validSpot = true;
-            for (Point2D p : occupied) {
-                if (Math.hypot(x - p.x, y - p.y) < 100) {
-                    validSpot = false;
+        // 3. forest clusters
+        int numForests = 3 + rand.nextInt(2);
+        for (int i = 0; i < numForests; i++) {
+            Position center = findValidPosition(featureCenters, 150, rand);
+            if (center != null) {
+                featureCenters.add(center);
+                // Generate 5-8 trees per cluster
+                int numTrees = 5 + rand.nextInt(4);
+                for (int t = 0; t < numTrees; t++) {
+                    // Tree position within 40px radius of cluster center
+                    double angle = rand.nextDouble() * Math.PI * 2;
+                    double dist = rand.nextDouble() * 40;
+                    double tx = center.getX() + Math.cos(angle) * dist;
+                    double ty = center.getY() + Math.sin(angle) * dist;
+                    
+                    forestTrees.add(createOrganicTree(tx, ty, rand));
+                }
+            }
+        }
+    }
+
+    private Position findValidPosition(List<Position> existing, double minDistance, Random rand) {
+        for (int i = 0; i < 50; i++) { // Try 50 times
+            double x = 50 + rand.nextDouble() * (width - 100);
+            double y = 50 + rand.nextDouble() * (height - 100);
+            Position p = new Position(x, y);
+            
+            boolean valid = true;
+            for (Position other : existing) {
+                if (p.distance(other) < minDistance) {
+                    valid = false;
                     break;
                 }
             }
-
-            if (!validSpot) continue;
-            occupied.add(new Point2D(x, y));
-
-            // Create irregular rock shape
-            Path2D.Double rock = new Path2D.Double();
-            int numSides = 5 + rand.nextInt(3);
-            double size = 20 + rand.nextDouble() * 15;
-
-            for (int i = 0; i < numSides; i++) {
-                double angle = (2 * Math.PI * i) / numSides + rand.nextDouble() * 0.3;
-                double radius = size * (0.8 + rand.nextDouble() * 0.4);
-                double px = x + Math.cos(angle) * radius;
-                double py = y + Math.sin(angle) * radius;
-
-                if (i == 0) {
-                    rock.moveTo(px, py);
-                } else {
-                    rock.lineTo(px, py);
-                }
-            }
-            rock.closePath();
-
-            rocks.add(rock);
+            if (valid) return p;
         }
+        return null; // Could not find position
+    }
+
+    // Creates an irregular blob (Swamp)
+    private Shape createOrganicBlob(double cx, double cy, double minR, double maxR, int minPts, int maxPts, Random rand) {
+        GeneralPath path = new GeneralPath();
+        int points = minPts + rand.nextInt(maxPts - minPts + 1);
+        double angleStep = (Math.PI * 2) / points;
+
+        for (int i = 0; i < points; i++) {
+            double angle = i * angleStep;
+            double r = minR + rand.nextDouble() * (maxR - minR);
+            double x = cx + Math.cos(angle) * r;
+            double y = cy + Math.sin(angle) * r;
+            
+            if (i == 0) path.moveTo(x, y);
+            else path.lineTo(x, y);
+        }
+        path.closePath();
+        return path;
+    }
+
+    // Creates a jagged polygon (Rock)
+    private Shape createPolygonRock(double cx, double cy, double minR, double maxR, int minSides, int maxSides, Random rand) {
+        Polygon poly = new Polygon();
+        int sides = minSides + rand.nextInt(maxSides - minSides + 1);
+        double angleStep = (Math.PI * 2) / sides;
+
+        for (int i = 0; i < sides; i++) {
+            double angle = i * angleStep + (rand.nextDouble() - 0.5) * 0.5; // Irregular angles
+            double r = minR + rand.nextDouble() * (maxR - minR);
+            int x = (int)(cx + Math.cos(angle) * r);
+            int y = (int)(cy + Math.sin(angle) * r);
+            poly.addPoint(x, y);
+        }
+        return poly;
+    }
+
+    // Creates an organic tree shape from overlapping circles
+    private Shape createOrganicTree(double x, double y, Random rand) {
+        Area tree = new Area();
+        int blobs = 3 + rand.nextInt(3);
+        for(int i=0; i<blobs; i++) {
+            double r = 15 + rand.nextDouble() * 15;
+            double ox = (rand.nextDouble() - 0.5) * 20;
+            double oy = (rand.nextDouble() - 0.5) * 20;
+            tree.add(new Area(new Ellipse2D.Double(x + ox - r, y + oy - r, r*2, r*2)));
+        }
+        return tree;
     }
 
     public static synchronized Environment getInstance() {
@@ -178,10 +164,22 @@ public class Environment {
         return instance;
     }
 
-    // TERRAIN CHECKS
+    // season update
+    public synchronized void updateSeason() {
+        seasonTick++;
+        if (seasonTick >= SEASON_DURATION) {
+            seasonTick = 0;
+            currentSeason = Season.values()[(currentSeason.ordinal() + 1) % Season.values().length];
+            System.out.println("🍂 Season changed to: " + currentSeason);
+        }
+    }
+
+    public Season getCurrentSeason() { return currentSeason; }
+
+    // terrain checks
     public boolean isInForest(Position pos) {
-        for (Shape forest : forests) {
-            if (forest.contains(pos.getX(), pos.getY())) return true;
+        for (Shape tree : forestTrees) {
+            if (tree.contains(pos.getX(), pos.getY())) return true;
         }
         return false;
     }
@@ -200,21 +198,9 @@ public class Environment {
         return false;
     }
 
-    // Getters for rendering
-    public List<Shape> getForests() { return forests; }
+    public List<Shape> getTrees() { return forestTrees; }
     public List<Shape> getSwamps() { return swamps; }
     public List<Shape> getRocks() { return rocks; }
-
-    // Legacy getters for compatibility (return empty lists)
-    public List<Rectangle2D.Double> getTrees() { return new ArrayList<>(); }
-    public List<Ellipse2D.Double> getSwamps_Old() { return new ArrayList<>(); }
-    public List<Rectangle2D.Double> getRocks_Old() { return new ArrayList<>(); }
-
-    // Helper class for 2D points
-    private static class Point2D {
-        double x, y;
-        Point2D(double x, double y) { this.x = x; this.y = y; }
-    }
 
     // Helper to get grid key
     private String getGridKey(Position pos) {
@@ -224,18 +210,20 @@ public class Environment {
     }
 
     public synchronized void registerAgent(AID aid, String type, Position position, int energy, double speed, double visionRange) {
-        // Ensure we don't spawn inside obstacles
-        while(isObstacle(position.getX(), position.getY())) {
+        // Ensure we don't spawn inside a rock
+        int attempts = 0;
+        while(isObstacle(position.getX(), position.getY()) && attempts < 10) {
             position.setX(Math.random() * width);
             position.setY(Math.random() * height);
+            attempts++;
         }
 
         AgentInfo info = new AgentInfo(aid, type, position, energy, speed, visionRange);
         agents.put(aid, info);
-
+        
         String key = getGridKey(position);
         spatialGrid.computeIfAbsent(key, k -> new ArrayList<>()).add(info);
-
+        
         System.out.println("✓ Registered: " + info);
     }
 
@@ -257,21 +245,20 @@ public class Environment {
         if (info != null) {
             // Check Obstacle Collision
             if (isObstacle(newPosition.getX(), newPosition.getY())) {
-                // Hit a rock! Don't move.
-                return;
+                return; 
             }
 
             Position oldPos = info.getPosition();
             String oldKey = getGridKey(oldPos);
-
+            
             double x = Math.max(0, Math.min(width, newPosition.getX()));
             double y = Math.max(0, Math.min(height, newPosition.getY()));
             Position clampedPos = new Position(x, y);
-
+            
             info.setPosition(clampedPos);
-
+            
             String newKey = getGridKey(clampedPos);
-
+            
             if (!oldKey.equals(newKey)) {
                 List<AgentInfo> oldCell = spatialGrid.get(oldKey);
                 if (oldCell != null) {
@@ -285,7 +272,7 @@ public class Environment {
 
     public synchronized List<AgentInfo> getNearbyAgents(AID requester, Position position, double radius) {
         List<AgentInfo> nearby = new ArrayList<>();
-
+        
         int cellX = (int) (position.getX() / GRID_CELL_SIZE);
         int cellY = (int) (position.getY() / GRID_CELL_SIZE);
         int searchRadius = (int) Math.ceil(radius / GRID_CELL_SIZE);
@@ -294,7 +281,7 @@ public class Environment {
             for (int dy = -searchRadius; dy <= searchRadius; dy++) {
                 String key = (cellX + dx) + "," + (cellY + dy);
                 List<AgentInfo> cellAgents = spatialGrid.get(key);
-
+                
                 if (cellAgents != null) {
                     for (AgentInfo info : cellAgents) {
                         if (!info.getAID().equals(requester)) {
@@ -348,7 +335,6 @@ public class Environment {
 
     // FOOD MANAGEMENT
     public synchronized void spawnFood(Position position) {
-        // Don't spawn food inside rocks
         if (!isObstacle(position.getX(), position.getY())) {
             foods.add(new Food(position, FOOD_ENERGY));
         }
