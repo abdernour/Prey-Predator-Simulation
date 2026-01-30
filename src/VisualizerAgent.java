@@ -1,4 +1,3 @@
-
 import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
 import jade.wrapper.AgentController;
@@ -7,6 +6,7 @@ import javax.swing.Timer;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.event.*;
 import java.util.*;
 import java.util.List;
@@ -27,7 +27,7 @@ public class VisualizerAgent extends Agent {
         public static int PREY_ENERGY_MAX = 120;
         public static int PREY_REPRO_THRESHOLD = 80;
         public static int PREY_REPRO_COST = 40;
-        public static double PREY_SPEED = 2.4; 
+        public static double PREY_SPEED = 2.4;
 
         // Predator parameters
         public static int PRED_ENERGY_START = 200;
@@ -51,7 +51,7 @@ public class VisualizerAgent extends Agent {
         environment = Environment.getInstance();
 
         SwingUtilities.invokeLater(() -> {
-            frame = new JFrame("Simulation Proie-Prédateur");
+            frame = new JFrame("Simulation Proie-PrÃ©dateur");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setLayout(new BorderLayout(0, 0));
             frame.getContentPane().setBackground(new Color(240, 242, 245)); // Soft gray bg
@@ -174,14 +174,14 @@ public class VisualizerAgent extends Agent {
             setBorder(new EmptyBorder(0, 0, 0, 5)); // Right padding
 
             // Title
-            JLabel title = new JLabel("Paramètres");
+            JLabel title = new JLabel("ParamÃ¨tres");
             title.setFont(new Font("Segoe UI", Font.BOLD, 20));
             title.setForeground(new Color(40, 40, 40));
             title.setAlignmentX(Component.LEFT_ALIGNMENT);
             title.setBorder(new EmptyBorder(0, 5, 15, 0));
             add(title);
 
-            // LIVE STATS CARD (NEW!)
+            // LIVE STATS CARD
             add(createLiveStatsCard());
             add(Box.createVerticalStrut(15));
 
@@ -190,7 +190,7 @@ public class VisualizerAgent extends Agent {
             add(Box.createVerticalStrut(15));
 
             // Predator Section Card
-            add(createSectionCard("Prédateurs", new Color(220, 20, 60), "pred"));
+            add(createSectionCard("PrÃ©dateurs", new Color(220, 20, 60), "pred"));
             add(Box.createVerticalStrut(15));
 
             // Food Section Card
@@ -231,7 +231,7 @@ public class VisualizerAgent extends Agent {
             card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
 
             livePreyLabel = createStatItem(card, "Proies", new Color(34, 139, 34));
-            livePredatorLabel = createStatItem(card, "Préd.", new Color(220, 20, 60));
+            livePredatorLabel = createStatItem(card, "PrÃ©d.", new Color(220, 20, 60));
             liveFoodLabel = createStatItem(card, "Nourr.", new Color(255, 165, 0));
 
             return card;
@@ -287,20 +287,20 @@ public class VisualizerAgent extends Agent {
 
             // Content
             if (type.equals("prey")) {
-                addPreyParameter(card, "Énergie initiale", SimParams.PREY_ENERGY_START, 10, 200, 5);
-                addPreyParameter(card, "Énergie max", SimParams.PREY_ENERGY_MAX, 50, 300, 10);
+                addPreyParameter(card, "Ã‰nergie initiale", SimParams.PREY_ENERGY_START, 10, 200, 5);
+                addPreyParameter(card, "Ã‰nergie max", SimParams.PREY_ENERGY_MAX, 50, 300, 10);
                 addPreyParameter(card, "Seuil reprod.", SimParams.PREY_REPRO_THRESHOLD, 30, 150, 5);
-                addPreyParameter(card, "Coût reprod.", SimParams.PREY_REPRO_COST, 10, 100, 5);
+                addPreyParameter(card, "CoÃ»t reprod.", SimParams.PREY_REPRO_COST, 10, 100, 5);
             } else if (type.equals("pred")) {
-                addPredParameter(card, "Énergie initiale", SimParams.PRED_ENERGY_START, 50, 400, 10);
-                addPredParameter(card, "Énergie max", SimParams.PRED_ENERGY_MAX, 100, 500, 10);
+                addPredParameter(card, "Ã‰nergie initiale", SimParams.PRED_ENERGY_START, 50, 400, 10);
+                addPredParameter(card, "Ã‰nergie max", SimParams.PRED_ENERGY_MAX, 100, 500, 10);
                 addPredParameter(card, "Gain capture", SimParams.PRED_ENERGY_GAIN, 20, 150, 5);
                 addPredParameter(card, "Seuil reprod.", SimParams.PRED_REPRO_THRESHOLD, 50, 300, 10);
-                addPredParameter(card, "Coût reprod.", SimParams.PRED_REPRO_COST, 20, 150, 5);
+                addPredParameter(card, "CoÃ»t reprod.", SimParams.PRED_REPRO_COST, 20, 150, 5);
             } else if (type.equals("food")) {
-                addFoodParameter(card, "Valeur énerg.", SimParams.FOOD_ENERGY_VALUE, 10, 100, 5);
+                addFoodParameter(card, "Valeur Ã©nerg.", SimParams.FOOD_ENERGY_VALUE, 10, 100, 5);
                 addFoodParameter(card, "Taux spawn", SimParams.FOOD_SPAWN_RATE, 1, 50, 1);
-                addFoodParameter(card, "Qté par spawn", SimParams.FOOD_PER_SPAWN, 1, 10, 1);
+                addFoodParameter(card, "QtÃ© par spawn", SimParams.FOOD_PER_SPAWN, 1, 10, 1);
             }
             return card;
         }
@@ -352,24 +352,24 @@ public class VisualizerAgent extends Agent {
         private void applyParameters() {
             try {
                 // Prey parameters
-                SimParams.PREY_ENERGY_START = (Integer) preySpinners.get("Énergie initiale").getValue();
-                SimParams.PREY_ENERGY_MAX = (Integer) preySpinners.get("Énergie max").getValue();
+                SimParams.PREY_ENERGY_START = (Integer) preySpinners.get("Ã‰nergie initiale").getValue();
+                SimParams.PREY_ENERGY_MAX = (Integer) preySpinners.get("Ã‰nergie max").getValue();
                 SimParams.PREY_REPRO_THRESHOLD = (Integer) preySpinners.get("Seuil reprod.").getValue();
-                SimParams.PREY_REPRO_COST = (Integer) preySpinners.get("Coût reprod.").getValue();
+                SimParams.PREY_REPRO_COST = (Integer) preySpinners.get("CoÃ»t reprod.").getValue();
 
                 // Predator parameters
-                SimParams.PRED_ENERGY_START = (Integer) predSpinners.get("Énergie initiale").getValue();
-                SimParams.PRED_ENERGY_MAX = (Integer) predSpinners.get("Énergie max").getValue();
+                SimParams.PRED_ENERGY_START = (Integer) predSpinners.get("Ã‰nergie initiale").getValue();
+                SimParams.PRED_ENERGY_MAX = (Integer) predSpinners.get("Ã‰nergie max").getValue();
                 SimParams.PRED_ENERGY_GAIN = (Integer) predSpinners.get("Gain capture").getValue();
                 SimParams.PRED_REPRO_THRESHOLD = (Integer) predSpinners.get("Seuil reprod.").getValue();
-                SimParams.PRED_REPRO_COST = (Integer) predSpinners.get("Coût reprod.").getValue();
+                SimParams.PRED_REPRO_COST = (Integer) predSpinners.get("CoÃ»t reprod.").getValue();
 
                 // Food parameters
-                SimParams.FOOD_ENERGY_VALUE = (Integer) foodSpinners.get("Valeur énerg.").getValue();
+                SimParams.FOOD_ENERGY_VALUE = (Integer) foodSpinners.get("Valeur Ã©nerg.").getValue();
                 SimParams.FOOD_SPAWN_RATE = (Integer) foodSpinners.get("Taux spawn").getValue();
-                SimParams.FOOD_PER_SPAWN = (Integer) foodSpinners.get("Qté par spawn").getValue();
+                SimParams.FOOD_PER_SPAWN = (Integer) foodSpinners.get("QtÃ© par spawn").getValue();
 
-                JOptionPane.showMessageDialog(this, "Paramètres appliqués avec succès!", "Succès", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "ParamÃ¨tres appliquÃ©s avec succÃ¨s!", "SuccÃ¨s", JOptionPane.INFORMATION_MESSAGE);
                 System.out.println("Parameters updated successfully");
             } catch (Exception e) {
                 e.printStackTrace();
@@ -394,7 +394,7 @@ public class VisualizerAgent extends Agent {
             JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
             leftPanel.setBackground(Color.WHITE);
 
-            statusLabel = new JLabel("PRÊT");
+            statusLabel = new JLabel("PRÃŠT");
             statusLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
             statusLabel.setForeground(new Color(108, 117, 125));
             leftPanel.add(statusLabel);
@@ -404,7 +404,7 @@ public class VisualizerAgent extends Agent {
             preySpinner = createSpinner(15, 0, 100);
             leftPanel.add(preySpinner);
 
-            leftPanel.add(createLabel("Prédateurs (init):"));
+            leftPanel.add(createLabel("PrÃ©dateurs (init):"));
             predatorSpinner = createSpinner(8, 0, 50);
             leftPanel.add(predatorSpinner);
 
@@ -414,9 +414,9 @@ public class VisualizerAgent extends Agent {
             JPanel centerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
             centerPanel.setBackground(Color.WHITE);
 
-            startBtn = createModernButton("Démarrer", new Color(40, 167, 69));
+            startBtn = createModernButton("DÃ©marrer", new Color(40, 167, 69));
             pauseBtn = createModernButton("Pause", new Color(220, 53, 69));
-            JButton restartBtn = createModernButton("Redémarrer", new Color(0, 123, 255));
+            JButton restartBtn = createModernButton("RedÃ©marrer", new Color(0, 123, 255));
 
             pauseBtn.setEnabled(false);
 
@@ -451,7 +451,7 @@ public class VisualizerAgent extends Agent {
                 pauseBtn.setEnabled(false);
                 preySpinner.setEnabled(true);
                 predatorSpinner.setEnabled(true);
-                statusLabel.setText("PRÊT");
+                statusLabel.setText("PRÃŠT");
                 statusLabel.setForeground(new Color(108, 117, 125));
                 if (panel != null) panel.repaint();
                 if (chart != null) chart.updateData(0, 0);
@@ -472,7 +472,7 @@ public class VisualizerAgent extends Agent {
             addPreyBtn.addActionListener(e -> spawnSingleAgent("PreyAgent", "Prey"));
             rightPanel.add(addPreyBtn);
 
-            JButton addPredatorBtn = createQuickButton("+ Prédateur", new Color(220, 20, 60));
+            JButton addPredatorBtn = createQuickButton("+ PrÃ©dateur", new Color(220, 20, 60));
             addPredatorBtn.addActionListener(e -> spawnSingleAgent("PredatorAgent", "Predator"));
             rightPanel.add(addPredatorBtn);
 
@@ -582,8 +582,8 @@ public class VisualizerAgent extends Agent {
     class SimulationPanel extends JPanel {
         public SimulationPanel() {
             setPreferredSize(new Dimension(900, 650));
-            setBackground(Color.WHITE);
-            setBorder(null); // Border handled by wrapper
+            setBackground(new Color(245, 240, 235)); // Warmer "Paper" map color
+            setBorder(null);
         }
 
         @Override
@@ -591,6 +591,51 @@ public class VisualizerAgent extends Agent {
             super.paintComponent(g);
             Graphics2D g2d = (Graphics2D) g;
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            // DRAW TERRAIN
+            // 1. Swamps
+            g2d.setColor(new Color(101, 67, 33, 120)); // Semi-transparent muddy brown
+            for (Shape swamp : environment.getSwamps()) {
+                g2d.fill(swamp);
+                // Add darker outline
+                g2d.setColor(new Color(70, 45, 20, 150));
+                g2d.draw(swamp);
+                g2d.setColor(new Color(101, 67, 33, 120));
+            }
+
+            // 2. Forests
+            for (Shape forest : environment.getForests()) {
+                // Base forest color
+                g2d.setColor(new Color(34, 100, 34, 200)); // Dark green
+                g2d.fill(forest);
+
+                // Add lighter highlight on top-left for depth
+                g2d.setColor(new Color(60, 140, 60, 100)); // Lighter green
+                g2d.fill(forest);
+            }
+
+            // 3. Rocks
+            for (Shape rock : environment.getRocks()) {
+                // Shadow first
+                g2d.setColor(new Color(0, 0, 0, 60));
+                g2d.translate(2, 2);
+                g2d.fill(rock);
+                g2d.translate(-2, -2);
+
+                // Main rock
+                g2d.setColor(new Color(128, 128, 128));
+                g2d.fill(rock);
+
+                // Highlight edge
+                g2d.setColor(new Color(160, 160, 160));
+                g2d.setStroke(new BasicStroke(1.5f));
+                g2d.draw(rock);
+
+                // Dark outline
+                g2d.setColor(new Color(80, 80, 80));
+                g2d.setStroke(new BasicStroke(1f));
+                g2d.draw(rock);
+            }
 
             Map<jade.core.AID, AgentInfo> agents = environment.getAllAgents();
             List<Food> foods = environment.getAllFoods();
@@ -667,7 +712,7 @@ public class VisualizerAgent extends Agent {
             if (preyHistory.isEmpty()) {
                 g2d.setColor(new Color(150, 150, 150));
                 g2d.setFont(new Font("Segoe UI", Font.ITALIC, 14));
-                g2d.drawString("En attente de données...", getWidth() / 2 - 80, getHeight() / 2);
+                g2d.drawString("En attente de donnÃ©es...", getWidth() / 2 - 80, getHeight() / 2);
                 return;
             }
 
@@ -717,7 +762,7 @@ public class VisualizerAgent extends Agent {
             int legendY = 20;
 
             drawLegendItem(g2d, legendX, legendY, new Color(40, 167, 69), "Proies");
-            drawLegendItem(g2d, legendX, legendY + 20, new Color(220, 53, 69), "Prédateurs");
+            drawLegendItem(g2d, legendX, legendY + 20, new Color(220, 53, 69), "PrÃ©dateurs");
         }
 
         private void drawLegendItem(Graphics2D g2d, int x, int y, Color c, String text) {

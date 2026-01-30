@@ -86,20 +86,27 @@ public class PreyAgent extends Agent {
                 return;
             }
 
+            // TERRAIN CHECKS
+            boolean inForest = environment.isInForest(position);
+            boolean inSwamp = environment.isInSwamp(position);
+
             // Perception
+            // If in forest, we are harder to see, but we also see less? 
+            // For now, let's say forest protects us from being seen (handled in Predator logic)
+            
             List<AgentInfo> nearby = environment.getNearbyAgents(getAID(), position, myVision);
             List<AgentInfo> predators = nearby.stream().filter(AgentInfo::isPredator).toList();
             List<AgentInfo> nearbyPrey = nearby.stream().filter(AgentInfo::isPrey).toList();
 
             // BEHAVIOR
             if (!predators.isEmpty()) {
-                flee(predators);
+                flee(predators, inSwamp);
             } else {
                 // Recover Stamina
                 if (stamina < MAX_STAMINA) stamina++;
 
                 if (nearbyPrey.size() > 8) {
-                    disperseFromCrowd(nearbyPrey);
+                    disperseFromCrowd(nearbyPrey, inSwamp);
                 } else {
                     Food nearestFood = environment.findNearestFood(position, FOOD_SEARCH_RADIUS);
 
@@ -115,22 +122,26 @@ public class PreyAgent extends Agent {
                         } else {
                             double dx = nearestFood.getPosition().getX() - position.getX();
                             double dy = nearestFood.getPosition().getY() - position.getY();
-                            double foodSpeed = (energy < 50) ? mySpeed * 1.5 : mySpeed;
-                            position = position.moveTo(dx, dy, foodSpeed);
                             
-                            // Update wander angle to match food direction
+                            double speed = (energy < 50) ? mySpeed * 1.5 : mySpeed;
+                            if (inSwamp) speed *= 0.5; // Swamp slows down
+                            
+                            position = position.moveTo(dx, dy, speed);
                             wanderAngle = Math.atan2(dy, dx);
                         }
                     } else {
-                        // WANDER LOGIC (Much Smoother)
+                        // WANDER LOGIC
                         wanderAngle += (Math.random() - 0.5) * 0.15;
                         
                         double dx = Math.cos(wanderAngle);
                         double dy = Math.sin(wanderAngle);
                         
+                        double speed = mySpeed * 0.8;
+                        if (inSwamp) speed *= 0.5; // Swamp slows down
+                        
                         position = new Position(
-                                position.getX() + dx * mySpeed * 0.8,
-                                position.getY() + dy * mySpeed * 0.8
+                                position.getX() + dx * speed,
+                                position.getY() + dy * speed
                         );
                         
                         checkBoundsBounce();
@@ -166,7 +177,7 @@ public class PreyAgent extends Agent {
             }
         }
 
-        private void flee(List<AgentInfo> predators) {
+        private void flee(List<AgentInfo> predators, boolean inSwamp) {
             double predX = 0, predY = 0;
             for (AgentInfo pred : predators) {
                 predX += pred.getPosition().getX();
@@ -187,6 +198,8 @@ public class PreyAgent extends Agent {
             } else {
                 currentSpeed = mySpeed * 0.9;
             }
+            
+            if (inSwamp) currentSpeed *= 0.5; // Swamp slows down flee
 
             position = position.moveTo(fleeX, fleeY, currentSpeed);
         }
@@ -213,7 +226,7 @@ public class PreyAgent extends Agent {
             } catch (Exception e) {}
         }
 
-        private void disperseFromCrowd(List<AgentInfo> nearbyAgents) {
+        private void disperseFromCrowd(List<AgentInfo> nearbyAgents, boolean inSwamp) {
             double avgX = 0, avgY = 0;
             for (AgentInfo other : nearbyAgents) {
                 avgX += other.getPosition().getX();
@@ -230,9 +243,12 @@ public class PreyAgent extends Agent {
             disperseX += (Math.random() - 0.5) * 100;
             disperseY += (Math.random() - 0.5) * 100;
 
+            double speed = 0.05;
+            if (inSwamp) speed *= 0.5;
+
             position = new Position(
-                    position.getX() + disperseX * 0.05,
-                    position.getY() + disperseY * 0.05
+                    position.getX() + disperseX * speed,
+                    position.getY() + disperseY * speed
             );
         }
     }

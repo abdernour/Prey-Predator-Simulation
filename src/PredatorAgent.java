@@ -1,6 +1,7 @@
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class PredatorAgent extends Agent {
     private Position position;
@@ -77,21 +78,36 @@ public class PredatorAgent extends Agent {
                 return;
             }
 
+            // TERRAIN CHECKS
+            boolean inSwamp = environment.isInSwamp(position);
+
+            // PERCEPTION
             List<AgentInfo> nearby = environment.getNearbyAgents(getAID(), position, myVision);
+            
+            // Filter visible prey
             List<AgentInfo> preyList = nearby.stream()
-                    .filter(info -> info.isPrey() && !info.getAID().equals(getAID()))
-                    .toList();
+                    .filter(info -> {
+                        if (!info.isPrey()) return false;
+                        if (info.getAID().equals(getAID())) return false;
+                        
+                        // If prey is in forest, reduce visibility distance
+                        if (environment.isInForest(info.getPosition())) {
+                            return position.distance(info.getPosition()) < (myVision * 0.3);
+                        }
+                        return true;
+                    })
+                    .collect(Collectors.toList());
 
             switch (currentState) {
                 case RESTING:
-                    handleRestingState();
+                    handleRestingState(inSwamp);
                     break;
                 case HUNTING:
-                    handleHuntingState(preyList);
+                    handleHuntingState(preyList, inSwamp);
                     break;
                 case SCOUTING:
                 default:
-                    handleScoutingState(preyList, nearby);
+                    handleScoutingState(preyList, nearby, inSwamp);
                     break;
             }
 
@@ -104,7 +120,7 @@ public class PredatorAgent extends Agent {
             try { Thread.sleep(40); } catch (Exception e) {}
         }
 
-        private void handleRestingState() {
+        private void handleRestingState(boolean inSwamp) {
             // Recover Stamina
             stamina += 1;
             if (stamina >= MAX_STAMINA) {
@@ -112,21 +128,25 @@ public class PredatorAgent extends Agent {
                 currentState = State.SCOUTING;
             }
             
-            // Move very slowly (limping/tired)
+            // Move very slowly
             wanderAngle += (Math.random() - 0.5) * 0.2;
             double dx = Math.cos(wanderAngle);
             double dy = Math.sin(wanderAngle);
             
+            double speed = mySpeed * 0.2;
+            if (inSwamp) speed *= 0.5;
+
             position = new Position(
-                    position.getX() + dx * mySpeed * 0.2,
-                    position.getY() + dy * mySpeed * 0.2
+                    position.getX() + dx * speed,
+                    position.getY() + dy * speed
             );
             
             checkBoundsBounce();
         }
 
-        private void handleHuntingState(List<AgentInfo> preyList) {
-            stamina -= 2;
+        private void handleHuntingState(List<AgentInfo> preyList, boolean inSwamp) {
+            // Burn Stamina (Double cost in swamp)
+            stamina -= inSwamp ? 4 : 2;
             
             if (stamina <= 0) {
                 currentState = State.RESTING;
@@ -145,16 +165,18 @@ public class PredatorAgent extends Agent {
                 capture(target);
                 currentState = State.SCOUTING;
             } else {
-                // Update angle to face target
                 double dx = target.getPosition().getX() - position.getX();
                 double dy = target.getPosition().getY() - position.getY();
                 wanderAngle = Math.atan2(dy, dx);
                 
-                moveTo(target.getPosition(), mySpeed * 1.5);
+                double speed = mySpeed * 1.5;
+                if (inSwamp) speed *= 0.5;
+
+                moveTo(target.getPosition(), speed);
             }
         }
 
-        private void handleScoutingState(List<AgentInfo> preyList, List<AgentInfo> nearby) {
+        private void handleScoutingState(List<AgentInfo> preyList, List<AgentInfo> nearby, boolean inSwamp) {
             if (stamina < MAX_STAMINA) stamina++;
 
             if (!preyList.isEmpty() && stamina > 30 && eatingCooldown <= 0) {
@@ -166,17 +188,19 @@ public class PredatorAgent extends Agent {
                     .filter(AgentInfo::isPredator).toList();
             
             if (nearbyPredators.size() > 3) {
-                disperseFromCrowd(nearbyPredators);
+                disperseFromCrowd(nearbyPredators, inSwamp);
             } else {
-                // Smooth Wander
                 wanderAngle += (Math.random() - 0.5) * 0.4;
                 
                 double dx = Math.cos(wanderAngle);
                 double dy = Math.sin(wanderAngle);
                 
+                double speed = mySpeed * 0.6;
+                if (inSwamp) speed *= 0.5;
+
                 position = new Position(
-                        position.getX() + dx * mySpeed * 0.6,
-                        position.getY() + dy * mySpeed * 0.6
+                        position.getX() + dx * speed,
+                        position.getY() + dy * speed
                 );
                 
                 checkBoundsBounce();
@@ -272,7 +296,7 @@ public class PredatorAgent extends Agent {
             } catch (Exception e) {}
         }
 
-        private void disperseFromCrowd(List<AgentInfo> nearbyPredators) {
+        private void disperseFromCrowd(List<AgentInfo> nearbyPredators, boolean inSwamp) {
             double avgX = 0, avgY = 0;
             for (AgentInfo other : nearbyPredators) {
                 avgX += other.getPosition().getX();
@@ -286,9 +310,12 @@ public class PredatorAgent extends Agent {
             
             wanderAngle = Math.atan2(dy, dx);
             
+            double speed = 0.1;
+            if (inSwamp) speed *= 0.5;
+
             position = new Position(
-                    position.getX() + dx * 0.1 + (Math.random()-0.5)*10,
-                    position.getY() + dy * 0.1 + (Math.random()-0.5)*10
+                    position.getX() + dx * speed + (Math.random()-0.5)*10,
+                    position.getY() + dy * speed + (Math.random()-0.5)*10
             );
         }
     }
