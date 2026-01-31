@@ -133,7 +133,6 @@ public class PreyAgent extends Agent {
                     if (nearbyPrey.size() > 0) {
                         applyFlocking(nearbyPrey, inSwamp);
                     } else {
-                        // Wander
                         wander(inSwamp);
                     }
                 }
@@ -141,7 +140,7 @@ public class PreyAgent extends Agent {
                 // Try to reproduce
                 if (energy >= VisualizerAgent.SimParams.PREY_REPRO_THRESHOLD && reproductionCooldown <= 0) {
                     if (Math.random() < 0.20) {
-                        if (!nearbyPrey.isEmpty() && nearbyPrey.size() < 15) { // Allow larger herds
+                        if (!nearbyPrey.isEmpty() && nearbyPrey.size() < 15) {
                             reproduce();
                         }
                     }
@@ -152,60 +151,49 @@ public class PreyAgent extends Agent {
             position.setX(Math.max(20, Math.min(environment.getWidth() - 20, position.getX())));
             position.setY(Math.max(20, Math.min(environment.getHeight() - 20, position.getY())));
 
-            environment.updatePosition(getAID(), position);
+            // update position and energy
+            environment.updatePosition(getAID(), position, energy);
 
             try { Thread.sleep(30); } catch (Exception e) {}
         }
 
         private void applyFlocking(List<AgentInfo> flock, boolean inSwamp) {
             double sepX = 0, sepY = 0;
-            double alignX = 0, alignY = 0;
-            
             double cohX = 0, cohY = 0;
             int count = 0;
 
             for (AgentInfo other : flock) {
                 double d = position.distance(other.getPosition());
                 if (d > 0 && d < FLOCKING_RADIUS) {
-                    // Separation: Move away from neighbors who are too close
                     if (d < 25.0) {
                         double pushX = position.getX() - other.getPosition().getX();
                         double pushY = position.getY() - other.getPosition().getY();
-                        sepX += pushX / d; // Weight by distance
+                        sepX += pushX / d;
                         sepY += pushY / d;
                     }
-
-                    // Cohesion: Move towards center of mass
                     cohX += other.getPosition().getX();
                     cohY += other.getPosition().getY();
-                    
                     count++;
                 }
             }
 
             if (count > 0) {
-                // Finish Cohesion calculation
                 cohX /= count;
                 cohY /= count;
-                // Vector towards center
-                cohX = (cohX - position.getX()) / 100.0; // Move 1% towards center
+                cohX = (cohX - position.getX()) / 100.0;
                 cohY = (cohY - position.getY()) / 100.0;
             }
 
-            // Combine forces
             double moveX = (sepX * SEPARATION_WEIGHT) + (cohX * COHESION_WEIGHT);
             double moveY = (sepY * SEPARATION_WEIGHT) + (cohY * COHESION_WEIGHT);
 
-            // Add a bit of wander so the flock keeps moving
             wanderAngle += (Math.random() - 0.5) * 0.2;
             moveX += Math.cos(wanderAngle) * 0.5;
             moveY += Math.sin(wanderAngle) * 0.5;
 
-            // Apply movement
-            double speed = mySpeed * 0.8; // Cruising speed
+            double speed = mySpeed * 0.8;
             if (inSwamp) speed *= 0.5;
 
-            // Normalize and apply speed
             double dist = Math.sqrt(moveX * moveX + moveY * moveY);
             if (dist > 0) {
                 moveX /= dist;
@@ -214,7 +202,6 @@ public class PreyAgent extends Agent {
                     position.getX() + moveX * speed,
                     position.getY() + moveY * speed
                 );
-                // Update wander angle to match flock direction
                 wanderAngle = Math.atan2(moveY, moveX);
             }
             
@@ -295,7 +282,6 @@ public class PreyAgent extends Agent {
         }
 
         private void disperseFromCrowd(List<AgentInfo> nearbyAgents, boolean inSwamp) {
-            // Handle extreme overcrowding
              double avgX = 0, avgY = 0;
             for (AgentInfo other : nearbyAgents) {
                 avgX += other.getPosition().getX();

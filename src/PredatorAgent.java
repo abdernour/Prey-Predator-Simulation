@@ -97,11 +97,7 @@ public class PredatorAgent extends Agent {
                     })
                     .collect(Collectors.toList());
 
-            // PACK TACTICS: Check for hunting partners
-            // We can't easily see other agents' internal state (HUNTING/SCOUTING) directly 
-            // without messaging, but we can infer it: if a predator is moving fast, it's hunting.
-            // For simplicity, let's say if we see a predator close to prey, we join in.
-
+            // PACK TACTICS
             switch (currentState) {
                 case RESTING:
                     handleRestingState(inSwamp);
@@ -180,21 +176,14 @@ public class PredatorAgent extends Agent {
         private void handleScoutingState(List<AgentInfo> preyList, List<AgentInfo> nearby, boolean inSwamp) {
             if (stamina < MAX_STAMINA) stamina++;
 
-
             if (!preyList.isEmpty() && stamina > 30 && eatingCooldown <= 0) {
                 currentState = State.HUNTING;
                 return;
             }
 
-            // PACK LOGIC
-            // If we see a predator running fast (speed > base speed), assume it's hunting
-            // and move towards it to join the pack.
             List<AgentInfo> huntingPartners = nearby.stream()
                     .filter(info -> info.isPredator() && !info.getAID().equals(getAID()))
-                    // Heuristic: If they are moving fast, they are hunting. 
-                    // Since we don't have their velocity vector, we can check if they are near prey.
                     .filter(pred -> {
-                        // Is this predator close to any prey I can see?
                         for (AgentInfo prey : preyList) {
                             if (pred.getPosition().distance(prey.getPosition()) < 150) return true;
                         }
@@ -203,13 +192,11 @@ public class PredatorAgent extends Agent {
                     .collect(Collectors.toList());
 
             if (!huntingPartners.isEmpty() && stamina > 50) {
-                // Join the hunt! Move towards the partner.
                 AgentInfo partner = huntingPartners.get(0);
                 double dx = partner.getPosition().getX() - position.getX();
                 double dy = partner.getPosition().getY() - position.getY();
                 wanderAngle = Math.atan2(dy, dx);
                 
-                // Move faster than scouting to catch up
                 double speed = mySpeed * 1.1; 
                 if (inSwamp) speed *= 0.5;
                 
@@ -220,7 +207,6 @@ public class PredatorAgent extends Agent {
                 return;
             }
 
-            // 3. Standard Scouting
             List<AgentInfo> nearbyPredators = nearby.stream()
                     .filter(AgentInfo::isPredator).collect(Collectors.toList());
             
@@ -265,7 +251,8 @@ public class PredatorAgent extends Agent {
             position.setX(x);
             position.setY(y);
             
-            environment.updatePosition(getAID(), position);
+            // update position and energy
+            environment.updatePosition(getAID(), position, energy);
         }
 
         private void moveTo(Position target, double speed) {

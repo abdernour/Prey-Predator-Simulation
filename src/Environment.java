@@ -21,12 +21,12 @@ public class Environment {
     private Map<AID, AgentInfo> agents;
     private List<Food> foods;
 
-    // terrain clusters
+    // ORGANIC TERRAIN
     private List<Shape> forestTrees; // All trees from all clusters
     private List<Shape> swamps;
     private List<Shape> rocks;
 
-    // seasons
+    // SEASONAL SYSTEM
     public enum Season { SPRING, SUMMER, AUTUMN, WINTER }
     private Season currentSeason = Season.SPRING;
     private int seasonTick = 0;
@@ -50,7 +50,7 @@ public class Environment {
         Random rand = new Random();
         List<Position> featureCenters = new ArrayList<>();
 
-        // 1. swamps
+        // 1. Generate Organic Swamps (3-4 zones)
         int numSwamps = 3 + rand.nextInt(2);
         for (int i = 0; i < numSwamps; i++) {
             Position center = findValidPosition(featureCenters, 150, rand);
@@ -60,7 +60,7 @@ public class Environment {
             }
         }
 
-        // 2. rocks
+        // 2. Generate Natural Rock Obstacles (5-7 rocks)
         int numRocks = 5 + rand.nextInt(3);
         for (int i = 0; i < numRocks; i++) {
             Position center = findValidPosition(featureCenters, 100, rand);
@@ -70,7 +70,7 @@ public class Environment {
             }
         }
 
-        // 3. forest clusters
+        // 3. Generate Forest Clusters (3-4 zones)
         int numForests = 3 + rand.nextInt(2);
         for (int i = 0; i < numForests; i++) {
             Position center = findValidPosition(featureCenters, 150, rand);
@@ -164,7 +164,7 @@ public class Environment {
         return instance;
     }
 
-    // season update
+    // SEASONAL LOGIC
     public synchronized void updateSeason() {
         seasonTick++;
         if (seasonTick >= SEASON_DURATION) {
@@ -176,7 +176,7 @@ public class Environment {
 
     public Season getCurrentSeason() { return currentSeason; }
 
-    // terrain checks
+    // TERRAIN CHECKS
     public boolean isInForest(Position pos) {
         for (Shape tree : forestTrees) {
             if (tree.contains(pos.getX(), pos.getY())) return true;
@@ -240,13 +240,16 @@ public class Environment {
         }
     }
 
-    public synchronized void updatePosition(AID aid, Position newPosition) {
+    public synchronized void updatePosition(AID aid, Position newPosition, int energy) {
         AgentInfo info = agents.get(aid);
         if (info != null) {
             // Check Obstacle Collision
             if (isObstacle(newPosition.getX(), newPosition.getY())) {
                 return; 
             }
+
+            // update energy
+            info.setEnergy(energy);
 
             Position oldPos = info.getPosition();
             String oldKey = getGridKey(oldPos);
