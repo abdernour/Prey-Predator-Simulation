@@ -21,6 +21,7 @@ public class VisualizerAgent extends Agent {
     private ControlPanel controlPanel;
     private ParameterPanel parameterPanel;
     private InspectorPanel inspectorPanel;
+    private StatsPanel statsPanel;
     private boolean isRunning = false;
     
     private AgentInfo selectedAgent = null;
@@ -77,7 +78,7 @@ public class VisualizerAgent extends Agent {
             // Simulation panel
             panel = new SimulationPanel();
             
-            // mouse listener for selection
+            // MOUSE LISTENER FOR SELECTION
             panel.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
@@ -94,20 +95,25 @@ public class VisualizerAgent extends Agent {
             simWrapper.add(panel, BorderLayout.CENTER);
             centerContainer.add(simWrapper, BorderLayout.CENTER);
 
-            // RIGHT SIDEBAR (Parameters + Inspector)
+            // RIGHT SIDEBAR (Inspector + Stats + Parameters)
             JPanel rightSidebar = new JPanel();
             rightSidebar.setLayout(new BoxLayout(rightSidebar, BoxLayout.Y_AXIS));
             rightSidebar.setBackground(new Color(240, 242, 245));
             
-            // Inspector Panel (Top of sidebar)
+            // Inspector Panel
             inspectorPanel = new InspectorPanel();
             rightSidebar.add(inspectorPanel);
-            rightSidebar.add(Box.createVerticalStrut(20));
+            rightSidebar.add(Box.createVerticalStrut(15));
 
-            // Parameters Panel (Bottom of sidebar)
+            // Stats Panel (NEW)
+            statsPanel = new StatsPanel();
+            rightSidebar.add(statsPanel);
+            rightSidebar.add(Box.createVerticalStrut(15));
+
+            // Parameters Panel
             parameterPanel = new ParameterPanel();
             JScrollPane paramScroll = new JScrollPane(parameterPanel);
-            paramScroll.setPreferredSize(new Dimension(320, 400));
+            paramScroll.setPreferredSize(new Dimension(320, 300));
             paramScroll.setBorder(null);
             paramScroll.getViewport().setBackground(new Color(240, 242, 245));
             paramScroll.getVerticalScrollBar().setUnitIncrement(16);
@@ -170,14 +176,16 @@ public class VisualizerAgent extends Agent {
                     if (parameterPanel != null && tickCount % 10 == 0) {
                         parameterPanel.updateLiveStats(environment.getPreyCount(), environment.getPredatorCount(), environment.getFoodCount());
                     }
+                    if (statsPanel != null && tickCount % 10 == 0) {
+                        statsPanel.updateStats(environment.getStats());
+                    }
                     if (inspectorPanel != null && selectedAgent != null) {
-                        // Refresh selected agent data from environment
                         AgentInfo freshInfo = environment.getAllAgents().get(selectedAgent.getAID());
                         if (freshInfo != null) {
                             selectedAgent = freshInfo;
                             inspectorPanel.updateInfo(selectedAgent);
                         } else {
-                            selectedAgent = null; // Agent died
+                            selectedAgent = null;
                             inspectorPanel.clearInfo();
                         }
                     }
@@ -211,7 +219,64 @@ public class VisualizerAgent extends Agent {
     private void startSimulation() { isRunning = true; }
     private void stopSimulation() { isRunning = false; }
 
-    // inspector panel
+    // stats panel
+    class StatsPanel extends JPanel {
+        private JLabel huntedLabel, starvedPreyLabel, oldAgeLabel, starvedPredLabel;
+
+        public StatsPanel() {
+            setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+            setBackground(Color.WHITE);
+            setBorder(BorderFactory.createCompoundBorder(
+                    new LineBorder(new Color(230, 230, 230), 1, true),
+                    new EmptyBorder(15, 15, 15, 15)
+            ));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, 180));
+
+            JLabel title = new JLabel("Statistiques de Décès");
+            title.setFont(new Font("Segoe UI", Font.BOLD, 16));
+            title.setForeground(Color.GRAY);
+            title.setAlignmentX(Component.LEFT_ALIGNMENT);
+            add(title);
+            add(Box.createVerticalStrut(10));
+
+            huntedLabel = createStatRow("🐰 Chassés:", new Color(220, 53, 69));
+            starvedPreyLabel = createStatRow("🐰 Affamés:", new Color(255, 193, 7));
+            oldAgeLabel = createStatRow("🐰 Vieillesse:", Color.GRAY);
+            add(Box.createVerticalStrut(5));
+            starvedPredLabel = createStatRow("🦁 Affamés:", new Color(220, 53, 69));
+        }
+
+        private JLabel createStatRow(String title, Color color) {
+            JPanel row = new JPanel(new BorderLayout());
+            row.setBackground(Color.WHITE);
+            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
+            row.setAlignmentX(Component.LEFT_ALIGNMENT);
+            
+            JLabel titleLbl = new JLabel(title);
+            titleLbl.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            row.add(titleLbl, BorderLayout.WEST);
+            
+            JLabel valueLbl = new JLabel("0");
+            valueLbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            valueLbl.setForeground(color);
+            row.add(valueLbl, BorderLayout.EAST);
+            
+            add(row);
+            add(Box.createVerticalStrut(5));
+            return valueLbl;
+        }
+
+        public void updateStats(Environment.DeathStats stats) {
+            huntedLabel.setText(String.valueOf(stats.preyHunted));
+            starvedPreyLabel.setText(String.valueOf(stats.preyStarved));
+            oldAgeLabel.setText(String.valueOf(stats.preyOldAge));
+            starvedPredLabel.setText(String.valueOf(stats.predStarved));
+        }
+    }
+
+    // ==========================================
+    // INSPECTOR PANEL
+    // ==========================================
     class InspectorPanel extends JPanel {
         private JLabel nameLabel, typeLabel, energyLabel, speedLabel, visionLabel;
         private JProgressBar energyBar;
@@ -225,7 +290,7 @@ public class VisualizerAgent extends Agent {
                     new LineBorder(new Color(230, 230, 230), 1, true),
                     new EmptyBorder(15, 15, 15, 15)
             ));
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, 250));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
 
             // Header
             JLabel title = new JLabel("Inspecteur");
@@ -237,7 +302,7 @@ public class VisualizerAgent extends Agent {
             emptyLabel = new JLabel("Cliquez sur un agent", SwingConstants.CENTER);
             emptyLabel.setFont(new Font("Segoe UI", Font.ITALIC, 13));
             emptyLabel.setForeground(Color.LIGHT_GRAY);
-            emptyLabel.setPreferredSize(new Dimension(200, 150));
+            emptyLabel.setPreferredSize(new Dimension(200, 120));
             add(emptyLabel, BorderLayout.CENTER);
 
             // Content State (Hidden initially)
@@ -246,7 +311,7 @@ public class VisualizerAgent extends Agent {
             contentPanel.setBackground(Color.WHITE);
             
             nameLabel = new JLabel("Agent #001");
-            nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+            nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
             nameLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
             
             typeLabel = new JLabel("PREDATOR");
@@ -511,7 +576,7 @@ public class VisualizerAgent extends Agent {
             JPanel centerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
             centerPanel.setBackground(Color.WHITE);
             
-            // icon buttons
+            // ICON BUTTONS
             startBtn = createButton("▶", new Color(40, 167, 69));
             pauseBtn = createButton("⏸", new Color(220, 53, 69));
             JButton restartBtn = createButton("↺", new Color(0, 123, 255));
@@ -536,6 +601,7 @@ public class VisualizerAgent extends Agent {
                 stopSimulation();
                 for (jade.core.AID aid : new java.util.HashSet<>(environment.getAllAgents().keySet())) environment.unregisterAgent(aid);
                 environment.getAllFoods().clear();
+                environment.resetStats(); // reset stats
                 startBtn.setEnabled(true);
                 pauseBtn.setEnabled(false);
                 statusLabel.setText("PRÊT");
@@ -543,6 +609,7 @@ public class VisualizerAgent extends Agent {
                 panel.repaint();
                 chart.updateData(0, 0);
                 parameterPanel.updateLiveStats(0, 0, 0);
+                statsPanel.updateStats(environment.getStats()); // reset stats ui
                 selectedAgent = null;
                 inspectorPanel.clearInfo();
             });
