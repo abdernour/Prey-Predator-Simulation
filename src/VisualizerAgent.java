@@ -511,9 +511,10 @@ public class VisualizerAgent extends Agent {
             JPanel centerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
             centerPanel.setBackground(Color.WHITE);
             
-            startBtn = createModernButton("Démarrer", new Color(40, 167, 69));
-            pauseBtn = createModernButton("Pause", new Color(220, 53, 69));
-            JButton restartBtn = createModernButton("Redémarrer", new Color(0, 123, 255));
+            // icon buttons
+            startBtn = createButton("▶", new Color(40, 167, 69));
+            pauseBtn = createButton("⏸", new Color(220, 53, 69));
+            JButton restartBtn = createButton("↺", new Color(0, 123, 255));
             pauseBtn.setEnabled(false);
 
             startBtn.addActionListener(e -> {
@@ -553,13 +554,12 @@ public class VisualizerAgent extends Agent {
 
             JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
             rightPanel.setBackground(Color.WHITE);
-            JButton addPreyBtn = createQuickButton("+ Proie", new Color(34, 139, 34));
-            addPreyBtn.addActionListener(e -> spawnSingleAgent("PreyAgent", "Prey"));
-            rightPanel.add(addPreyBtn);
-
-            JButton addPredatorBtn = createQuickButton("+ Prédateur", new Color(220, 20, 60));
-            addPredatorBtn.addActionListener(e -> spawnSingleAgent("PredatorAgent", "Predator"));
-            rightPanel.add(addPredatorBtn);
+            JButton addPrey = createButton("+ 🐰", new Color(34, 139, 34));
+            addPrey.addActionListener(e -> spawnSingleAgent("PreyAgent", "Prey"));
+            JButton addPred = createButton("+ 🦁", new Color(220, 20, 60));
+            addPred.addActionListener(e -> spawnSingleAgent("PredatorAgent", "Predator"));
+            rightPanel.add(addPrey);
+            rightPanel.add(addPred);
             add(rightPanel, BorderLayout.EAST);
         }
 
