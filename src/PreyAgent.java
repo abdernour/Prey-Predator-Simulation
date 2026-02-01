@@ -71,6 +71,7 @@ public class PreyAgent extends Agent {
             // Check for DIE message
             jade.lang.acl.ACLMessage msg = receive();
             if (msg != null && "DIE".equals(msg.getContent())) {
+                environment.recordDeath("PREY", "HUNTED");
                 myAgent.doDelete();
                 return;
             }
@@ -87,7 +88,14 @@ public class PreyAgent extends Agent {
 
             reproductionCooldown--;
 
-            if (energy <= 0 || age > AGE_MAX) {
+            // DEATH CONDITIONS
+            if (energy <= 0) {
+                environment.recordDeath("PREY", "STARVED");
+                myAgent.doDelete();
+                return;
+            }
+            if (age > AGE_MAX) {
+                environment.recordDeath("PREY", "OLD_AGE");
                 myAgent.doDelete();
                 return;
             }
@@ -151,7 +159,7 @@ public class PreyAgent extends Agent {
             position.setX(Math.max(20, Math.min(environment.getWidth() - 20, position.getX())));
             position.setY(Math.max(20, Math.min(environment.getHeight() - 20, position.getY())));
 
-            // update position and energy
+            // UPDATE POSITION AND ENERGY
             environment.updatePosition(getAID(), position, energy);
 
             try { Thread.sleep(30); } catch (Exception e) {}

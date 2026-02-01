@@ -21,16 +21,32 @@ public class Environment {
     private Map<AID, AgentInfo> agents;
     private List<Food> foods;
 
-    // ORGANIC TERRAIN
-    private List<Shape> forestTrees; // All trees from all clusters
+    // terrain clusters
+    private List<Shape> forestTrees;
     private List<Shape> swamps;
     private List<Shape> rocks;
 
-    // SEASONAL SYSTEM
+    // seasons
     public enum Season { SPRING, SUMMER, AUTUMN, WINTER }
     private Season currentSeason = Season.SPRING;
     private int seasonTick = 0;
-    private static final int SEASON_DURATION = 300; // ~30 seconds at 10 ticks/sec
+    private static final int SEASON_DURATION = 300;
+
+    // death statistics
+    public static class DeathStats {
+        public int preyHunted = 0;
+        public int preyStarved = 0;
+        public int preyOldAge = 0;
+        public int predStarved = 0;
+        
+        public void reset() {
+            preyHunted = 0;
+            preyStarved = 0;
+            preyOldAge = 0;
+            predStarved = 0;
+        }
+    }
+    private DeathStats stats = new DeathStats();
 
     private static final double COLLISION_DISTANCE = 10.0;
     private static final int FOOD_ENERGY = 35;
@@ -76,15 +92,12 @@ public class Environment {
             Position center = findValidPosition(featureCenters, 150, rand);
             if (center != null) {
                 featureCenters.add(center);
-                // Generate 5-8 trees per cluster
                 int numTrees = 5 + rand.nextInt(4);
                 for (int t = 0; t < numTrees; t++) {
-                    // Tree position within 40px radius of cluster center
                     double angle = rand.nextDouble() * Math.PI * 2;
                     double dist = rand.nextDouble() * 40;
                     double tx = center.getX() + Math.cos(angle) * dist;
                     double ty = center.getY() + Math.sin(angle) * dist;
-                    
                     forestTrees.add(createOrganicTree(tx, ty, rand));
                 }
             }
@@ -92,11 +105,10 @@ public class Environment {
     }
 
     private Position findValidPosition(List<Position> existing, double minDistance, Random rand) {
-        for (int i = 0; i < 50; i++) { // Try 50 times
+        for (int i = 0; i < 50; i++) {
             double x = 50 + rand.nextDouble() * (width - 100);
             double y = 50 + rand.nextDouble() * (height - 100);
             Position p = new Position(x, y);
-            
             boolean valid = true;
             for (Position other : existing) {
                 if (p.distance(other) < minDistance) {
@@ -106,21 +118,18 @@ public class Environment {
             }
             if (valid) return p;
         }
-        return null; // Could not find position
+        return null;
     }
 
-    // Creates an irregular blob (Swamp)
     private Shape createOrganicBlob(double cx, double cy, double minR, double maxR, int minPts, int maxPts, Random rand) {
         GeneralPath path = new GeneralPath();
         int points = minPts + rand.nextInt(maxPts - minPts + 1);
         double angleStep = (Math.PI * 2) / points;
-
         for (int i = 0; i < points; i++) {
             double angle = i * angleStep;
             double r = minR + rand.nextDouble() * (maxR - minR);
             double x = cx + Math.cos(angle) * r;
             double y = cy + Math.sin(angle) * r;
-            
             if (i == 0) path.moveTo(x, y);
             else path.lineTo(x, y);
         }
@@ -128,14 +137,12 @@ public class Environment {
         return path;
     }
 
-    // Creates a jagged polygon (Rock)
     private Shape createPolygonRock(double cx, double cy, double minR, double maxR, int minSides, int maxSides, Random rand) {
         Polygon poly = new Polygon();
         int sides = minSides + rand.nextInt(maxSides - minSides + 1);
         double angleStep = (Math.PI * 2) / sides;
-
         for (int i = 0; i < sides; i++) {
-            double angle = i * angleStep + (rand.nextDouble() - 0.5) * 0.5; // Irregular angles
+            double angle = i * angleStep + (rand.nextDouble() - 0.5) * 0.5;
             double r = minR + rand.nextDouble() * (maxR - minR);
             int x = (int)(cx + Math.cos(angle) * r);
             int y = (int)(cy + Math.sin(angle) * r);
@@ -144,7 +151,6 @@ public class Environment {
         return poly;
     }
 
-    // Creates an organic tree shape from overlapping circles
     private Shape createOrganicTree(double x, double y, Random rand) {
         Area tree = new Area();
         int blobs = 3 + rand.nextInt(3);
@@ -175,6 +181,22 @@ public class Environment {
     }
 
     public Season getCurrentSeason() { return currentSeason; }
+
+    // death tracking
+    public synchronized void recordDeath(String type, String cause) {
+        if (type.equals("PREY")) {
+            switch (cause) {
+                case "HUNTED": stats.preyHunted++; break;
+                case "STARVED": stats.preyStarved++; break;
+                case "OLD_AGE": stats.preyOldAge++; break;
+            }
+        } else if (type.equals("PREDATOR")) {
+            if (cause.equals("STARVED")) stats.predStarved++;
+        }
+    }
+    
+    public synchronized DeathStats getStats() { return stats; }
+    public synchronized void resetStats() { stats.reset(); }
 
     // TERRAIN CHECKS
     public boolean isInForest(Position pos) {
@@ -210,20 +232,16 @@ public class Environment {
     }
 
     public synchronized void registerAgent(AID aid, String type, Position position, int energy, double speed, double visionRange) {
-        // Ensure we don't spawn inside a rock
         int attempts = 0;
         while(isObstacle(position.getX(), position.getY()) && attempts < 10) {
             position.setX(Math.random() * width);
             position.setY(Math.random() * height);
             attempts++;
         }
-
         AgentInfo info = new AgentInfo(aid, type, position, energy, speed, visionRange);
         agents.put(aid, info);
-        
         String key = getGridKey(position);
         spatialGrid.computeIfAbsent(key, k -> new ArrayList<>()).add(info);
-        
         System.out.println("✓ Registered: " + info);
     }
 
@@ -243,25 +261,15 @@ public class Environment {
     public synchronized void updatePosition(AID aid, Position newPosition, int energy) {
         AgentInfo info = agents.get(aid);
         if (info != null) {
-            // Check Obstacle Collision
-            if (isObstacle(newPosition.getX(), newPosition.getY())) {
-                return; 
-            }
-
-            // update energy
+            if (isObstacle(newPosition.getX(), newPosition.getY())) return; 
             info.setEnergy(energy);
-
             Position oldPos = info.getPosition();
             String oldKey = getGridKey(oldPos);
-            
             double x = Math.max(0, Math.min(width, newPosition.getX()));
             double y = Math.max(0, Math.min(height, newPosition.getY()));
             Position clampedPos = new Position(x, y);
-            
             info.setPosition(clampedPos);
-            
             String newKey = getGridKey(clampedPos);
-            
             if (!oldKey.equals(newKey)) {
                 List<AgentInfo> oldCell = spatialGrid.get(oldKey);
                 if (oldCell != null) {
@@ -275,16 +283,13 @@ public class Environment {
 
     public synchronized List<AgentInfo> getNearbyAgents(AID requester, Position position, double radius) {
         List<AgentInfo> nearby = new ArrayList<>();
-        
         int cellX = (int) (position.getX() / GRID_CELL_SIZE);
         int cellY = (int) (position.getY() / GRID_CELL_SIZE);
         int searchRadius = (int) Math.ceil(radius / GRID_CELL_SIZE);
-
         for (int dx = -searchRadius; dx <= searchRadius; dx++) {
             for (int dy = -searchRadius; dy <= searchRadius; dy++) {
                 String key = (cellX + dx) + "," + (cellY + dy);
                 List<AgentInfo> cellAgents = spatialGrid.get(key);
-                
                 if (cellAgents != null) {
                     for (AgentInfo info : cellAgents) {
                         if (!info.getAID().equals(requester)) {
@@ -302,23 +307,17 @@ public class Environment {
     public synchronized AgentInfo checkPreyCollision(Position predatorPos) {
         List<AgentInfo> nearby = getNearbyAgents(null, predatorPos, COLLISION_DISTANCE);
         for (AgentInfo info : nearby) {
-            if (info.isPrey()) {
-                return info;
-            }
+            if (info.isPrey()) return info;
         }
         return null;
     }
 
     public synchronized List<AgentInfo> getAllPrey() {
-        return agents.values().stream()
-                .filter(AgentInfo::isPrey)
-                .collect(Collectors.toList());
+        return agents.values().stream().filter(AgentInfo::isPrey).collect(Collectors.toList());
     }
 
     public synchronized List<AgentInfo> getAllPredators() {
-        return agents.values().stream()
-                .filter(AgentInfo::isPredator)
-                .collect(Collectors.toList());
+        return agents.values().stream().filter(AgentInfo::isPredator).collect(Collectors.toList());
     }
 
     public int getWidth() { return width; }
@@ -346,7 +345,6 @@ public class Environment {
     public synchronized Food findNearestFood(Position position, double radius) {
         Food nearest = null;
         double minDist = radius;
-
         for (Food food : foods) {
             if (!food.isConsumed()) {
                 double dist = position.distance(food.getPosition());

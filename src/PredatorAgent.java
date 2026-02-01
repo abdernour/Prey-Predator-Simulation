@@ -72,7 +72,9 @@ public class PredatorAgent extends Agent {
             cycleCount++;
             handleCooldowns();
             
+            // DEATH CHECK
             if (energy <= 0) {
+                environment.recordDeath("PREDATOR", "STARVED");
                 System.out.println("💀 " + getLocalName() + " starved");
                 myAgent.doDelete();
                 return;
@@ -251,7 +253,7 @@ public class PredatorAgent extends Agent {
             position.setX(x);
             position.setY(y);
             
-            // update position and energy
+            // UPDATE POSITION AND ENERGY
             environment.updatePosition(getAID(), position, energy);
         }
 
