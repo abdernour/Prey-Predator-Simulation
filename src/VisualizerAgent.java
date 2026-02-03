@@ -29,22 +29,22 @@ public class VisualizerAgent extends Agent {
     // Shared simulation parameters
     public static class SimParams {
         // Prey parameters
-        public static int PREY_ENERGY_START = 85;
+        public static int PREY_ENERGY_START = 60;
         public static int PREY_ENERGY_MAX = 120;
-        public static int PREY_REPRO_THRESHOLD = 80;
-        public static int PREY_REPRO_COST = 40;
-        public static double PREY_SPEED = 2.4; 
+        public static int PREY_REPRO_THRESHOLD = 100;
+        public static int PREY_REPRO_COST = 50;
+        public static double PREY_SPEED = 2.5; // Increased from 2.3 (Better chance to escape)
 
         // Predator parameters
-        public static int PRED_ENERGY_START = 200;
-        public static int PRED_ENERGY_MAX = 300;
-        public static int PRED_ENERGY_GAIN = 40; 
-        public static int PRED_REPRO_THRESHOLD = 220; 
-        public static int PRED_REPRO_COST = 110; 
-        public static double PRED_SPEED = 2.65;
+        public static int PRED_ENERGY_START = 250;
+        public static int PRED_ENERGY_MAX = 400;
+        public static int PRED_ENERGY_GAIN = 80; 
+        public static int PRED_REPRO_THRESHOLD = 250; 
+        public static int PRED_REPRO_COST = 100; 
+        public static double PRED_SPEED = 2.75; // Reduced from 3.0 (Fairer chase)
 
         // Food parameters
-        public static int FOOD_ENERGY_VALUE = 35;
+        public static int FOOD_ENERGY_VALUE = 40;
         public static int FOOD_SPAWN_RATE = 10;
         public static int FOOD_PER_SPAWN = 2;
     }
@@ -105,7 +105,7 @@ public class VisualizerAgent extends Agent {
             rightSidebar.add(inspectorPanel);
             rightSidebar.add(Box.createVerticalStrut(15));
 
-            // Stats Panel (NEW)
+            // Stats Panel
             statsPanel = new StatsPanel();
             rightSidebar.add(statsPanel);
             rightSidebar.add(Box.createVerticalStrut(15));
@@ -157,7 +157,7 @@ public class VisualizerAgent extends Agent {
                     case SPRING: spawnRate = Math.max(1, spawnRate / 2); amount += 1; break;
                     case SUMMER: break;
                     case AUTUMN: spawnRate = spawnRate * 2; break;
-                    case WINTER: spawnRate = spawnRate * 5; break;
+                    case WINTER: spawnRate = spawnRate * 3; break;
                 }
 
                 if (tickCount % spawnRate == 0) {
