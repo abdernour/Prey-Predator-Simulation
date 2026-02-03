@@ -29,19 +29,19 @@ public class VisualizerAgent extends Agent {
     // Shared simulation parameters
     public static class SimParams {
         // Prey parameters
-        public static int PREY_ENERGY_START = 60;
+        public static int PREY_ENERGY_START = 85;
         public static int PREY_ENERGY_MAX = 120;
-        public static int PREY_REPRO_THRESHOLD = 100;
-        public static int PREY_REPRO_COST = 50;
-        public static double PREY_SPEED = 2.5; // Increased from 2.3 (Better chance to escape)
+        public static int PREY_REPRO_THRESHOLD = 80;
+        public static int PREY_REPRO_COST = 40;
+        public static double PREY_SPEED = 2.4; 
 
         // Predator parameters
-        public static int PRED_ENERGY_START = 250;
-        public static int PRED_ENERGY_MAX = 400;
-        public static int PRED_ENERGY_GAIN = 80; 
-        public static int PRED_REPRO_THRESHOLD = 250; 
-        public static int PRED_REPRO_COST = 100; 
-        public static double PRED_SPEED = 2.75; // Reduced from 3.0 (Fairer chase)
+        public static int PRED_ENERGY_START = 200;
+        public static int PRED_ENERGY_MAX = 300;
+        public static int PRED_ENERGY_GAIN = 40; 
+        public static int PRED_REPRO_THRESHOLD = 220; 
+        public static int PRED_REPRO_COST = 110; 
+        public static double PRED_SPEED = 2.65;
 
         // Food parameters
         public static int FOOD_ENERGY_VALUE = 40;
@@ -165,6 +165,19 @@ public class VisualizerAgent extends Agent {
                         double x = 50 + Math.random() * (environment.getWidth() - 100);
                         double y = 50 + Math.random() * (environment.getHeight() - 100);
                         environment.spawnFood(new Position(x, y));
+                    }
+                }
+
+                // immigration system (safety net)
+                if (tickCount % 100 == 0) { // Check every ~3 seconds
+                    if (environment.getPreyCount() < 6) {
+                        controlPanel.spawnSingleAgent("PreyAgent", "Prey");
+                        controlPanel.spawnSingleAgent("PreyAgent", "Prey");
+                        System.out.println("🚑 Emergency Prey Immigration!");
+                    }
+                    if (environment.getPredatorCount() < 2) {
+                        controlPanel.spawnSingleAgent("PredatorAgent", "Predator");
+                        System.out.println("🚑 Emergency Predator Immigration!");
                     }
                 }
 
@@ -653,14 +666,14 @@ public class VisualizerAgent extends Agent {
             return btn;
         }
         
-        private void spawnInitialPopulation() {
+        public void spawnInitialPopulation() {
             int preyCount = (Integer) preySpinner.getValue();
             int predatorCount = (Integer) predatorSpinner.getValue();
             for (int i = 0; i < preyCount; i++) spawnSingleAgent("PreyAgent", "Prey");
             for (int i = 0; i < predatorCount; i++) spawnSingleAgent("PredatorAgent", "Predator");
         }
 
-        private void spawnSingleAgent(String className, String prefix) {
+        public void spawnSingleAgent(String className, String prefix) {
             try {
                 // randomize genetics for initial population
                 double baseSpeed = prefix.equals("Prey") ? SimParams.PREY_SPEED : SimParams.PRED_SPEED;
