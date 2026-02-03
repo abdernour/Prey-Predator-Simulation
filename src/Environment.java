@@ -66,17 +66,18 @@ public class Environment {
         Random rand = new Random();
         List<Position> featureCenters = new ArrayList<>();
 
-        // 1. Generate Organic Swamps (3-4 zones)
+        // generate organic swamps (smaller)
         int numSwamps = 3 + rand.nextInt(2);
         for (int i = 0; i < numSwamps; i++) {
             Position center = findValidPosition(featureCenters, 150, rand);
             if (center != null) {
                 featureCenters.add(center);
-                swamps.add(createOrganicBlob(center.getX(), center.getY(), 60, 100, 8, 13, rand));
+                // Reduced radius from 60-100 to 40-70
+                swamps.add(createOrganicBlob(center.getX(), center.getY(), 40, 70, 8, 13, rand));
             }
         }
 
-        // 2. Generate Natural Rock Obstacles (5-7 rocks)
+        // generate natural rock obstacles
         int numRocks = 5 + rand.nextInt(3);
         for (int i = 0; i < numRocks; i++) {
             Position center = findValidPosition(featureCenters, 100, rand);
@@ -86,18 +87,21 @@ public class Environment {
             }
         }
 
-        // 3. Generate Forest Clusters (3-4 zones)
+        // generate forest clusters (smaller)
         int numForests = 3 + rand.nextInt(2);
         for (int i = 0; i < numForests; i++) {
             Position center = findValidPosition(featureCenters, 150, rand);
             if (center != null) {
                 featureCenters.add(center);
-                int numTrees = 5 + rand.nextInt(4);
+                // Reduced trees per cluster from 5-8 to 4-6
+                int numTrees = 4 + rand.nextInt(3);
                 for (int t = 0; t < numTrees; t++) {
                     double angle = rand.nextDouble() * Math.PI * 2;
-                    double dist = rand.nextDouble() * 40;
+                    // Reduced spread from 40 to 30
+                    double dist = rand.nextDouble() * 30;
                     double tx = center.getX() + Math.cos(angle) * dist;
                     double ty = center.getY() + Math.sin(angle) * dist;
+
                     forestTrees.add(createOrganicTree(tx, ty, rand));
                 }
             }

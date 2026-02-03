@@ -8,14 +8,14 @@ public class PredatorAgent extends Agent {
     private int energy;
     private Environment environment;
     
-    // GENETICS
+    // genetics
     private double mySpeed;
     private double myVision;
 
-    // MOVEMENT PERSISTENCE
+    // movement persistence
     private double wanderAngle = Math.random() * 2 * Math.PI;
 
-    // BRAIN (State Machine)
+    // state machine
     private enum State { SCOUTING, HUNTING, RESTING }
     private State currentState = State.SCOUTING;
     private int stamina = 100;
@@ -72,26 +72,19 @@ public class PredatorAgent extends Agent {
             cycleCount++;
             handleCooldowns();
             
-            // DEATH CHECK
             if (energy <= 0) {
                 environment.recordDeath("PREDATOR", "STARVED");
-                System.out.println("💀 " + getLocalName() + " starved");
                 myAgent.doDelete();
                 return;
             }
 
-            // TERRAIN CHECKS
             boolean inSwamp = environment.isInSwamp(position);
-
-            // PERCEPTION
             List<AgentInfo> nearby = environment.getNearbyAgents(getAID(), position, myVision);
             
-            // Filter visible prey (Forest Logic)
             List<AgentInfo> preyList = nearby.stream()
                     .filter(info -> {
                         if (!info.isPrey()) return false;
                         if (info.getAID().equals(getAID())) return false;
-                        
                         if (environment.isInForest(info.getPosition())) {
                             return position.distance(info.getPosition()) < (myVision * 0.3);
                         }
@@ -99,7 +92,17 @@ public class PredatorAgent extends Agent {
                     })
                     .collect(Collectors.toList());
 
-            // PACK TACTICS
+            // opportunistic killing
+            if (eatingCooldown <= 0) {
+                for (AgentInfo prey : preyList) {
+                    if (position.distance(prey.getPosition()) <= CATCH_DISTANCE) {
+                        capture(prey);
+                        currentState = State.SCOUTING;
+                        return;
+                    }
+                }
+            }
+
             switch (currentState) {
                 case RESTING:
                     handleRestingState(inSwamp);
@@ -145,7 +148,8 @@ public class PredatorAgent extends Agent {
         }
 
         private void handleHuntingState(List<AgentInfo> preyList, boolean inSwamp) {
-            stamina -= inSwamp ? 4 : 2;
+            // Increased stamina drain (was 2)
+            stamina -= inSwamp ? 5 : 3;
             
             if (stamina <= 0) {
                 currentState = State.RESTING;
@@ -158,21 +162,16 @@ public class PredatorAgent extends Agent {
             }
 
             AgentInfo target = findClosest(preyList);
-            double dist = position.distance(target.getPosition());
+            
+            double dx = target.getPosition().getX() - position.getX();
+            double dy = target.getPosition().getY() - position.getY();
+            wanderAngle = Math.atan2(dy, dx);
+            
+            // Reduced sprint multiplier (was 1.5)
+            double speed = mySpeed * 1.3;
+            if (inSwamp) speed *= 0.5;
 
-            if (dist <= CATCH_DISTANCE && eatingCooldown <= 0) {
-                capture(target);
-                currentState = State.SCOUTING;
-            } else {
-                double dx = target.getPosition().getX() - position.getX();
-                double dy = target.getPosition().getY() - position.getY();
-                wanderAngle = Math.atan2(dy, dx);
-                
-                double speed = mySpeed * 1.5;
-                if (inSwamp) speed *= 0.5;
-
-                moveTo(target.getPosition(), speed);
-            }
+            moveTo(target.getPosition(), speed);
         }
 
         private void handleScoutingState(List<AgentInfo> preyList, List<AgentInfo> nearby, boolean inSwamp) {
@@ -253,7 +252,6 @@ public class PredatorAgent extends Agent {
             position.setX(x);
             position.setY(y);
             
-            // UPDATE POSITION AND ENERGY
             environment.updatePosition(getAID(), position, energy);
         }
 
