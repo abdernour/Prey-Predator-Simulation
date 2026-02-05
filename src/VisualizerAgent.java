@@ -23,8 +23,153 @@ public class VisualizerAgent extends Agent {
     private InspectorPanel inspectorPanel;
     private StatsPanel statsPanel;
     private boolean isRunning = false;
-    
+    private boolean isDarkMode = false;
+
     private AgentInfo selectedAgent = null;
+
+    // theme system
+    public static class ThemeColors {
+        // Background colors
+        public Color background;
+        public Color cardBackground;
+        public Color panelBackground;
+        
+        // Text colors
+        public Color primaryText;
+        public Color secondaryText;
+        public Color mutedText;
+        
+        // Border colors
+        public Color border;
+        public Color separator;
+        
+        // Accent colors
+        public Color preyColor;
+        public Color predatorColor;
+        public Color foodColor;
+        
+        // UI colors
+        public Color buttonBackground;
+        public Color buttonText;
+        public Color success;
+        public Color warning;
+        public Color danger;
+        
+        // Simulation colors
+        public Color grassBackground;
+        public Color swampColor;
+        public Color rockColor;
+        public Color treeColor;
+        public Color treeSummer;
+        public Color treeAutumn;
+        public Color treeWinter;
+        
+        public static ThemeColors getLightTheme() {
+            ThemeColors t = new ThemeColors();
+            t.background = new Color(240, 242, 245);
+            t.cardBackground = Color.WHITE;
+            t.panelBackground = new Color(240, 242, 245);
+            t.primaryText = new Color(40, 40, 40);
+            t.secondaryText = new Color(100, 100, 100);
+            t.mutedText = Color.GRAY;
+            t.border = new Color(220, 220, 220);
+            t.separator = new Color(230, 230, 230);
+            t.preyColor = new Color(40, 167, 69);
+            t.predatorColor = new Color(220, 53, 69);
+            t.foodColor = new Color(255, 193, 7);
+            t.buttonBackground = new Color(0, 123, 255);
+            t.buttonText = Color.WHITE;
+            t.success = new Color(40, 167, 69);
+            t.warning = new Color(255, 193, 7);
+            t.danger = new Color(220, 53, 69);
+            t.grassBackground = new Color(245, 240, 235);
+            t.swampColor = new Color(101, 67, 33, 100);
+            t.rockColor = new Color(128, 128, 128);
+            t.treeColor = new Color(34, 139, 34, 200);
+            t.treeSummer = new Color(20, 100, 20, 200);
+            t.treeAutumn = new Color(200, 100, 20, 200);
+            t.treeWinter = new Color(200, 220, 220, 200);
+            return t;
+        }
+        
+        public static ThemeColors getDarkTheme() {
+            ThemeColors t = new ThemeColors();
+            // Much darker backgrounds
+            t.background = new Color(8, 10, 12);
+            t.cardBackground = new Color(15, 18, 22);
+            t.panelBackground = new Color(15, 18, 22);
+            
+            // Brighter text for contrast
+            t.primaryText = new Color(255, 255, 255);
+            t.secondaryText = new Color(220, 220, 220);
+            t.mutedText = new Color(160, 160, 160);
+            
+            // Clear borders
+            t.border = new Color(70, 75, 85);
+            t.separator = new Color(60, 65, 75);
+            
+            // Super vibrant accent colors
+            t.preyColor = new Color(0, 255, 100); // Neon green
+            t.predatorColor = new Color(255, 50, 100); // Hot pink/red
+            t.foodColor = new Color(255, 220, 0); // Bright yellow
+            
+            // Bright UI elements
+            t.buttonBackground = new Color(0, 150, 255); // Bright blue
+            t.buttonText = Color.WHITE;
+            t.success = new Color(0, 255, 100);
+            t.warning = new Color(255, 220, 0);
+            t.danger = new Color(255, 50, 100);
+            
+            // Dark simulation elements
+            t.grassBackground = new Color(12, 18, 22);
+            t.swampColor = new Color(30, 20, 10, 180);
+            t.rockColor = new Color(60, 60, 70);
+            t.treeColor = new Color(20, 80, 30, 230);
+            t.treeSummer = new Color(10, 60, 20, 230);
+            t.treeAutumn = new Color(120, 60, 20, 230);
+            t.treeWinter = new Color(80, 100, 100, 230);
+            return t;
+        }
+    }
+    
+    private ThemeColors currentTheme() {
+        return isDarkMode ? ThemeColors.getDarkTheme() : ThemeColors.getLightTheme();
+    }
+    
+    private void applyThemeToUI() {
+        ThemeColors t = currentTheme();
+        
+        // update frame and main containers
+        if (frame != null) {
+            frame.getContentPane().setBackground(t.background);
+        }
+        
+        // update top bar
+        if (controlPanel != null) {
+            controlPanel.updateTheme(t);
+        }
+        
+        // Update center area
+        if (panel != null) {
+            panel.updateTheme(t);
+        }
+        
+        // Update right sidebar panels
+        if (inspectorPanel != null) {
+            inspectorPanel.updateTheme(t);
+        }
+        if (statsPanel != null) {
+            statsPanel.updateTheme(t);
+        }
+        if (parameterPanel != null) {
+            parameterPanel.updateTheme(t);
+        }
+        
+        // Update chart
+        if (chart != null) {
+            chart.updateTheme(t);
+        }
+    }
 
     // Shared simulation parameters
     public static class SimParams {
@@ -32,16 +177,16 @@ public class VisualizerAgent extends Agent {
         public static int PREY_ENERGY_START = 60;
         public static int PREY_ENERGY_MAX = 120;
         public static int PREY_REPRO_THRESHOLD = 100;
-        public static int PREY_REPRO_COST = 70;
-        public static double PREY_SPEED = 2.5; 
+        public static int PREY_REPRO_COST = 70; // Increased from 50 (Slower growth)
+        public static double PREY_SPEED = 2.5;
 
         // Predator parameters
         public static int PRED_ENERGY_START = 250;
         public static int PRED_ENERGY_MAX = 400;
-        public static int PRED_ENERGY_GAIN = 80; 
-        public static int PRED_REPRO_THRESHOLD = 250; 
-        public static int PRED_REPRO_COST = 100; 
-        public static double PRED_SPEED = 2.9;
+        public static int PRED_ENERGY_GAIN = 80;
+        public static int PRED_REPRO_THRESHOLD = 250;
+        public static int PRED_REPRO_COST = 100;
+        public static double PRED_SPEED = 2.9; // Increased from 2.75 (Faster hunters)
 
         // Food parameters
         public static int FOOD_ENERGY_VALUE = 40;
@@ -60,24 +205,26 @@ public class VisualizerAgent extends Agent {
             frame = new JFrame("Simulation Proie-Prédateur");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setLayout(new BorderLayout(0, 0));
-            frame.getContentPane().setBackground(new Color(240, 242, 245));
+            
+            ThemeColors t = currentTheme();
+            frame.getContentPane().setBackground(t.background);
 
             // Top control panel
             controlPanel = new ControlPanel();
             JPanel topContainer = new JPanel(new BorderLayout());
-            topContainer.setBackground(Color.WHITE);
-            topContainer.setBorder(new MatteBorder(0, 0, 1, 0, new Color(220, 220, 220)));
+            topContainer.setBackground(t.cardBackground);
+            topContainer.setBorder(new MatteBorder(0, 0, 1, 0, t.border));
             topContainer.add(controlPanel, BorderLayout.CENTER);
             frame.add(topContainer, BorderLayout.NORTH);
 
             // Center simulation
             JPanel centerContainer = new JPanel(new BorderLayout(20, 0));
-            centerContainer.setBackground(new Color(240, 242, 245));
+            centerContainer.setBackground(t.background);
             centerContainer.setBorder(new EmptyBorder(20, 20, 20, 20));
 
             // Simulation panel
             panel = new SimulationPanel();
-            
+
             // MOUSE LISTENER FOR SELECTION
             panel.addMouseListener(new MouseAdapter() {
                 @Override
@@ -87,9 +234,9 @@ public class VisualizerAgent extends Agent {
             });
 
             JPanel simWrapper = new JPanel(new BorderLayout());
-            simWrapper.setBackground(new Color(240, 242, 245));
+            simWrapper.setBackground(t.background);
             simWrapper.setBorder(BorderFactory.createCompoundBorder(
-                    new LineBorder(new Color(220, 220, 220), 1, true),
+                    new LineBorder(t.border, 1, true),
                     new EmptyBorder(0, 0, 0, 0)
             ));
             simWrapper.add(panel, BorderLayout.CENTER);
@@ -98,8 +245,8 @@ public class VisualizerAgent extends Agent {
             // RIGHT SIDEBAR (Inspector + Stats + Parameters)
             JPanel rightSidebar = new JPanel();
             rightSidebar.setLayout(new BoxLayout(rightSidebar, BoxLayout.Y_AXIS));
-            rightSidebar.setBackground(new Color(240, 242, 245));
-            
+            rightSidebar.setBackground(t.background);
+
             // Inspector Panel
             inspectorPanel = new InspectorPanel();
             rightSidebar.add(inspectorPanel);
@@ -115,24 +262,24 @@ public class VisualizerAgent extends Agent {
             JScrollPane paramScroll = new JScrollPane(parameterPanel);
             paramScroll.setPreferredSize(new Dimension(320, 300));
             paramScroll.setBorder(null);
-            paramScroll.getViewport().setBackground(new Color(240, 242, 245));
+            paramScroll.getViewport().setBackground(t.background);
             paramScroll.getVerticalScrollBar().setUnitIncrement(16);
-            
+
             rightSidebar.add(paramScroll);
-            
+
             centerContainer.add(rightSidebar, BorderLayout.EAST);
 
             frame.add(centerContainer, BorderLayout.CENTER);
 
             // Chart
             JPanel chartWrapper = new JPanel(new BorderLayout());
-            chartWrapper.setBackground(new Color(240, 242, 245));
+            chartWrapper.setBackground(t.background);
             chartWrapper.setBorder(new EmptyBorder(0, 20, 20, 20));
 
             chart = new PopulationChart();
             JPanel chartCard = new JPanel(new BorderLayout());
             chartCard.add(chart);
-            chartCard.setBorder(new LineBorder(new Color(220, 220, 220), 1, true));
+            chartCard.setBorder(new LineBorder(t.border, 1, true));
 
             chartWrapper.add(chartCard, BorderLayout.CENTER);
             frame.add(chartWrapper, BorderLayout.SOUTH);
@@ -168,7 +315,7 @@ public class VisualizerAgent extends Agent {
                     }
                 }
 
-                // immigration system (safety net)
+                // IMMIGRATION SYSTEM (Safety Net)
                 if (tickCount % 100 == 0) { // Check every ~3 seconds
                     if (environment.getPreyCount() < 6) {
                         controlPanel.spawnSingleAgent("PreyAgent", "Prey");
@@ -183,7 +330,7 @@ public class VisualizerAgent extends Agent {
 
                 if (panel != null) panel.repaint();
                 if (chart != null && tickCount % 3 == 0) chart.updateData(environment.getPreyCount(), environment.getPredatorCount());
-                
+
                 // Update UI
                 SwingUtilities.invokeLater(() -> {
                     if (parameterPanel != null && tickCount % 10 == 0) {
@@ -219,7 +366,7 @@ public class VisualizerAgent extends Agent {
                 bestMatch = info;
             }
         }
-        
+
         selectedAgent = bestMatch;
         if (selectedAgent != null) {
             inspectorPanel.updateInfo(selectedAgent);
@@ -232,51 +379,77 @@ public class VisualizerAgent extends Agent {
     private void startSimulation() { isRunning = true; }
     private void stopSimulation() { isRunning = false; }
 
-    // stats panel
+    // ==========================================
+    // STATS PANEL
+    // ==========================================
     class StatsPanel extends JPanel {
         private JLabel huntedLabel, starvedPreyLabel, oldAgeLabel, starvedPredLabel;
+        private ThemeColors currentTheme;
 
         public StatsPanel() {
+            currentTheme = ThemeColors.getLightTheme();
             setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-            setBackground(Color.WHITE);
-            setBorder(BorderFactory.createCompoundBorder(
-                    new LineBorder(new Color(230, 230, 230), 1, true),
-                    new EmptyBorder(15, 15, 15, 15)
-            ));
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, 180));
+            setBackground(currentTheme.cardBackground);
+            setBorder(new EmptyBorder(20, 20, 20, 20));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, 190));
 
             JLabel title = new JLabel("Statistiques de Décès");
             title.setFont(new Font("Segoe UI", Font.BOLD, 16));
-            title.setForeground(Color.GRAY);
+            title.setForeground(currentTheme.secondaryText);
             title.setAlignmentX(Component.LEFT_ALIGNMENT);
             add(title);
-            add(Box.createVerticalStrut(10));
+            add(Box.createVerticalStrut(15));
 
-            huntedLabel = createStatRow("🐰 Chassés:", new Color(220, 53, 69));
-            starvedPreyLabel = createStatRow("🐰 Affamés:", new Color(255, 193, 7));
-            oldAgeLabel = createStatRow("🐰 Vieillesse:", Color.GRAY);
-            add(Box.createVerticalStrut(5));
-            starvedPredLabel = createStatRow("🦁 Affamés:", new Color(220, 53, 69));
+            huntedLabel = createStatRow("🐰 Chassés:", currentTheme.danger);
+            starvedPreyLabel = createStatRow("🐰 Affamés:", currentTheme.warning);
+            oldAgeLabel = createStatRow("🐰 Vieillesse:", currentTheme.secondaryText);
+            add(Box.createVerticalStrut(8));
+            starvedPredLabel = createStatRow("🦁 Affamés:", currentTheme.danger);
         }
 
         private JLabel createStatRow(String title, Color color) {
             JPanel row = new JPanel(new BorderLayout());
-            row.setBackground(Color.WHITE);
+            row.setBackground(currentTheme.cardBackground);
             row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
             row.setAlignmentX(Component.LEFT_ALIGNMENT);
-            
+
             JLabel titleLbl = new JLabel(title);
             titleLbl.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            titleLbl.setForeground(currentTheme.primaryText);
             row.add(titleLbl, BorderLayout.WEST);
-            
+
             JLabel valueLbl = new JLabel("0");
             valueLbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
             valueLbl.setForeground(color);
             row.add(valueLbl, BorderLayout.EAST);
-            
+
             add(row);
             add(Box.createVerticalStrut(5));
             return valueLbl;
+        }
+        
+        public void updateTheme(ThemeColors t) {
+            currentTheme = t;
+            setBackground(t.cardBackground);
+            setBorder(new EmptyBorder(20, 20, 20, 20));
+            
+            // Update all child components
+            for (Component comp : getComponents()) {
+                if (comp instanceof JLabel) {
+                    comp.setFont(new Font("Segoe UI", Font.BOLD, 16));
+                    comp.setForeground(t.secondaryText);
+                } else if (comp instanceof JPanel) {
+                    comp.setBackground(t.cardBackground);
+                    for (Component child : ((JPanel)comp).getComponents()) {
+                        if (child instanceof JLabel) {
+                            child.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+                            child.setForeground(t.primaryText);
+                        }
+                    }
+                }
+            }
+            
+            repaint();
         }
 
         public void updateStats(Environment.DeathStats stats) {
@@ -295,51 +468,50 @@ public class VisualizerAgent extends Agent {
         private JProgressBar energyBar;
         private JPanel contentPanel;
         private JLabel emptyLabel;
+        private ThemeColors currentTheme;
 
         public InspectorPanel() {
+            currentTheme = ThemeColors.getLightTheme();
             setLayout(new BorderLayout());
-            setBackground(Color.WHITE);
-            setBorder(BorderFactory.createCompoundBorder(
-                    new LineBorder(new Color(230, 230, 230), 1, true),
-                    new EmptyBorder(15, 15, 15, 15)
-            ));
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
+            setBackground(currentTheme.cardBackground);
+            setBorder(new EmptyBorder(20, 20, 20, 20));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, 210));
 
             // Header
             JLabel title = new JLabel("Inspecteur");
             title.setFont(new Font("Segoe UI", Font.BOLD, 16));
-            title.setForeground(Color.GRAY);
+            title.setForeground(currentTheme.secondaryText);
             add(title, BorderLayout.NORTH);
 
             // Empty State
             emptyLabel = new JLabel("Cliquez sur un agent", SwingConstants.CENTER);
             emptyLabel.setFont(new Font("Segoe UI", Font.ITALIC, 13));
-            emptyLabel.setForeground(Color.LIGHT_GRAY);
+            emptyLabel.setForeground(currentTheme.mutedText);
             emptyLabel.setPreferredSize(new Dimension(200, 120));
             add(emptyLabel, BorderLayout.CENTER);
 
             // Content State (Hidden initially)
             contentPanel = new JPanel();
             contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-            contentPanel.setBackground(Color.WHITE);
-            
+            contentPanel.setBackground(currentTheme.cardBackground);
+
             nameLabel = new JLabel("Agent #001");
             nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
             nameLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-            
+
             typeLabel = new JLabel("PREDATOR");
             typeLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
-            typeLabel.setForeground(new Color(220, 53, 69));
+            typeLabel.setForeground(currentTheme.predatorColor);
             typeLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
             energyBar = new JProgressBar(0, 100);
-            energyBar.setForeground(new Color(40, 167, 69));
+            energyBar.setForeground(currentTheme.success);
             energyBar.setStringPainted(true);
             energyBar.setAlignmentX(Component.LEFT_ALIGNMENT);
-            
+
             speedLabel = new JLabel("Vitesse: 2.5");
             visionLabel = new JLabel("Vision: 100px");
-            
+
             contentPanel.add(Box.createVerticalStrut(10));
             contentPanel.add(nameLabel);
             contentPanel.add(typeLabel);
@@ -351,30 +523,63 @@ public class VisualizerAgent extends Agent {
             contentPanel.add(speedLabel);
             contentPanel.add(visionLabel);
         }
+        
+        public void updateTheme(ThemeColors t) {
+            currentTheme = t;
+            setBackground(t.cardBackground);
+            setBorder(new EmptyBorder(20, 20, 20, 20));
+            
+            // Update header
+            for (Component comp : getComponents()) {
+                if (comp instanceof JLabel) {
+                    comp.setFont(new Font("Segoe UI", Font.BOLD, 16));
+                    comp.setForeground(t.secondaryText);
+                }
+            }
+            
+            // Update empty state
+            if (emptyLabel != null) {
+                emptyLabel.setForeground(t.mutedText);
+            }
+            
+            // Update content panel
+            if (contentPanel != null) {
+                contentPanel.setBackground(t.cardBackground);
+                for (Component comp : contentPanel.getComponents()) {
+                    if (comp instanceof JLabel) {
+                        comp.setForeground(t.primaryText);
+                    } else if (comp instanceof JProgressBar) {
+                        comp.setForeground(t.success);
+                    }
+                }
+            }
+            
+            repaint();
+        }
 
         public void updateInfo(AgentInfo info) {
             remove(emptyLabel);
             add(contentPanel, BorderLayout.CENTER);
-            
+
             nameLabel.setText(info.getAID().getLocalName());
-            
+
             if (info.isPrey()) {
                 typeLabel.setText("PROIE");
-                typeLabel.setForeground(new Color(40, 167, 69));
+                typeLabel.setForeground(currentTheme.preyColor);
                 energyBar.setMaximum(SimParams.PREY_ENERGY_MAX);
             } else {
                 typeLabel.setText("PRÉDATEUR");
-                typeLabel.setForeground(new Color(220, 53, 69));
+                typeLabel.setForeground(currentTheme.predatorColor);
                 energyBar.setMaximum(SimParams.PRED_ENERGY_MAX);
             }
-            
+
             energyBar.setValue(info.getEnergy());
             energyBar.setString(info.getEnergy() + " / " + energyBar.getMaximum());
-            
+
             DecimalFormat df = new DecimalFormat("#.##");
             speedLabel.setText("⚡ Vitesse: " + df.format(info.getSpeed()));
             visionLabel.setText("👁 Vision: " + (int)info.getVisionRange() + "px");
-            
+
             revalidate();
             repaint();
         }
@@ -395,38 +600,94 @@ public class VisualizerAgent extends Agent {
         private Map<String, JSpinner> predSpinners = new HashMap<>();
         private Map<String, JSpinner> foodSpinners = new HashMap<>();
         private JLabel livePreyLabel, livePredatorLabel, liveFoodLabel;
+        private ThemeColors currentTheme;
 
         public ParameterPanel() {
+            currentTheme = ThemeColors.getLightTheme();
             setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-            setBackground(new Color(240, 242, 245));
+            setBackground(currentTheme.panelBackground);
             setBorder(new EmptyBorder(0, 0, 0, 5));
 
             JLabel title = new JLabel("Paramètres");
             title.setFont(new Font("Segoe UI", Font.BOLD, 20));
-            title.setForeground(new Color(40, 40, 40));
+            title.setForeground(currentTheme.primaryText);
             title.setAlignmentX(Component.LEFT_ALIGNMENT);
-            title.setBorder(new EmptyBorder(0, 5, 15, 0));
+            title.setBorder(new EmptyBorder(0, 5, 18, 0));
             add(title);
 
             add(createLiveStatsCard());
             add(Box.createVerticalStrut(15));
-            add(createSectionCard("Proies", new Color(34, 139, 34), "prey"));
+            add(createSectionCard("Proies", currentTheme.preyColor, "prey"));
             add(Box.createVerticalStrut(15));
-            add(createSectionCard("Prédateurs", new Color(220, 20, 60), "pred"));
+            add(createSectionCard("Prédateurs", currentTheme.predatorColor, "pred"));
             add(Box.createVerticalStrut(15));
-            add(createSectionCard("Nourriture", new Color(255, 165, 0), "food"));
+            add(createSectionCard("Nourriture", currentTheme.foodColor, "food"));
             add(Box.createVerticalStrut(20));
 
             JButton applyBtn = new JButton("Appliquer");
             applyBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
             applyBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-            applyBtn.setBackground(new Color(0, 123, 255));
-            applyBtn.setForeground(Color.WHITE);
+            applyBtn.setBackground(currentTheme.buttonBackground);
+            applyBtn.setForeground(currentTheme.buttonText);
             applyBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
             applyBtn.setFocusPainted(false);
+            applyBtn.setBorderPainted(false);
+            applyBtn.setContentAreaFilled(false);
+            applyBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
             applyBtn.addActionListener(e -> applyParameters());
             add(applyBtn);
             add(Box.createVerticalGlue());
+        }
+        
+        public void updateTheme(ThemeColors t) {
+            currentTheme = t;
+            setBackground(t.panelBackground);
+            
+            // Update title
+            for (Component comp : getComponents()) {
+                if (comp instanceof JLabel && comp.getFont().getSize() == 20) {
+                    comp.setForeground(t.primaryText);
+                }
+            }
+            
+            // Update all cards and their children
+            updateAllCards(t);
+            
+            repaint();
+        }
+        
+        private void updateAllCards(ThemeColors t) {
+            for (Component comp : getComponents()) {
+                if (comp instanceof JPanel) {
+                    JPanel card = (JPanel) comp;
+                    card.setBackground(t.cardBackground);
+                    
+                    for (Component child : card.getComponents()) {
+                        if (child instanceof JLabel) {
+                            JLabel label = (JLabel) child;
+                            if (label.getFont().getSize() >= 14) {
+                                label.setForeground(t.primaryText);
+                            } else {
+                                label.setForeground(t.secondaryText);
+                            }
+                        } else if (child instanceof JSpinner) {
+                            child.setBackground(t.cardBackground);
+                        } else if (child instanceof JButton) {
+                            JButton btn = (JButton) child;
+                            btn.setBackground(t.buttonBackground);
+                            btn.setForeground(t.buttonText);
+                        } else if (child instanceof JPanel) {
+                            JPanel nested = (JPanel) child;
+                            nested.setBackground(t.cardBackground);
+                            for (Component nestedChild : nested.getComponents()) {
+                                if (nestedChild instanceof JLabel) {
+                                    nestedChild.setForeground(t.primaryText);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         public void updateLiveStats(int prey, int pred, int food) {
@@ -436,30 +697,27 @@ public class VisualizerAgent extends Agent {
         }
 
         private JPanel createLiveStatsCard() {
-            JPanel card = new JPanel(new GridLayout(1, 3, 10, 0));
-            card.setBackground(Color.WHITE);
-            card.setBorder(BorderFactory.createCompoundBorder(
-                    new LineBorder(new Color(230, 230, 230), 1, true),
-                    new EmptyBorder(15, 10, 15, 10)
-            ));
+            JPanel card = new JPanel(new GridLayout(1, 3, 15, 0));
+            card.setBackground(currentTheme.cardBackground);
+            card.setBorder(new EmptyBorder(20, 15, 20, 15));
             card.setAlignmentX(Component.LEFT_ALIGNMENT);
-            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
+            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
 
-            livePreyLabel = createStatItem(card, "Proies", new Color(34, 139, 34));
-            livePredatorLabel = createStatItem(card, "Préd.", new Color(220, 20, 60));
-            liveFoodLabel = createStatItem(card, "Nourr.", new Color(255, 165, 0));
+            livePreyLabel = createStatItem(card, "Proies", currentTheme.preyColor);
+            livePredatorLabel = createStatItem(card, "Préd.", currentTheme.predatorColor);
+            liveFoodLabel = createStatItem(card, "Nourr.", currentTheme.foodColor);
             return card;
         }
 
         private JLabel createStatItem(JPanel parent, String title, Color color) {
             JPanel item = new JPanel(new BorderLayout());
-            item.setBackground(Color.WHITE);
+            item.setBackground(currentTheme.cardBackground);
             JLabel titleLbl = new JLabel(title, SwingConstants.CENTER);
-            titleLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-            titleLbl.setForeground(Color.GRAY);
+            titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
+            titleLbl.setForeground(currentTheme.secondaryText);
             item.add(titleLbl, BorderLayout.NORTH);
             JLabel valueLbl = new JLabel("0", SwingConstants.CENTER);
-            valueLbl.setFont(new Font("Segoe UI", Font.BOLD, 22));
+            valueLbl.setFont(new Font("Segoe UI", Font.BOLD, 24));
             valueLbl.setForeground(color);
             item.add(valueLbl, BorderLayout.CENTER);
             parent.add(item);
@@ -469,26 +727,28 @@ public class VisualizerAgent extends Agent {
         private JPanel createSectionCard(String title, Color accentColor, String type) {
             JPanel card = new JPanel();
             card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-            card.setBackground(Color.WHITE);
-            card.setBorder(BorderFactory.createCompoundBorder(
-                    new LineBorder(new Color(230, 230, 230), 1, true),
-                    new EmptyBorder(15, 15, 15, 15)
-            ));
+            card.setBackground(currentTheme.cardBackground);
+            card.setBorder(new EmptyBorder(20, 20, 20, 20));
             card.setAlignmentX(Component.LEFT_ALIGNMENT);
-            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, type.equals("food") ? 180 : 250));
+            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, type.equals("food") ? 200 : 280));
 
             JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-            header.setBackground(Color.WHITE);
+            header.setBackground(currentTheme.cardBackground);
             header.setAlignmentX(Component.LEFT_ALIGNMENT);
+            
+            // Modern accent bar
             JPanel bar = new JPanel();
-            bar.setPreferredSize(new Dimension(4, 16));
+            bar.setPreferredSize(new Dimension(3, 20));
             bar.setBackground(accentColor);
             header.add(bar);
+            
             JLabel label = new JLabel("  " + title);
-            label.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            label.setFont(new Font("Segoe UI", Font.BOLD, 15));
+            label.setForeground(currentTheme.primaryText);
             header.add(label);
+            
             card.add(header);
-            card.add(Box.createVerticalStrut(15));
+            card.add(Box.createVerticalStrut(18));
 
             if (type.equals("prey")) {
                 addPreyParameter(card, "Énergie initiale", SimParams.PREY_ENERGY_START, 10, 200, 5);
@@ -529,11 +789,12 @@ public class VisualizerAgent extends Agent {
         }
         private JPanel createParameterRow(String label, JSpinner spinner) {
             JPanel row = new JPanel(new BorderLayout(10, 0));
-            row.setBackground(Color.WHITE);
+            row.setBackground(currentTheme.cardBackground);
             row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
             row.setAlignmentX(Component.LEFT_ALIGNMENT);
             JLabel lbl = new JLabel(label);
             lbl.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            lbl.setForeground(currentTheme.primaryText);
             row.add(lbl, BorderLayout.CENTER);
             spinner.setPreferredSize(new Dimension(70, 28));
             row.add(spinner, BorderLayout.EAST);
@@ -564,18 +825,20 @@ public class VisualizerAgent extends Agent {
     class ControlPanel extends JPanel {
         private JLabel statusLabel;
         private JSpinner preySpinner, predatorSpinner;
-        private JButton startBtn, pauseBtn;
+        private JButton startBtn, pauseBtn, themeToggleBtn;
+        private ThemeColors currentTheme;
 
         public ControlPanel() {
             setLayout(new BorderLayout());
             setBackground(Color.WHITE);
             setBorder(new EmptyBorder(10, 20, 10, 20));
+            currentTheme = ThemeColors.getLightTheme();
 
             JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
-            leftPanel.setBackground(Color.WHITE);
+            leftPanel.setBackground(currentTheme.cardBackground);
             statusLabel = new JLabel("PRÊT");
             statusLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
-            statusLabel.setForeground(Color.GRAY);
+            statusLabel.setForeground(currentTheme.mutedText);
             leftPanel.add(statusLabel);
             leftPanel.add(new JSeparator(SwingConstants.VERTICAL));
             leftPanel.add(new JLabel("Proies:"));
@@ -587,12 +850,13 @@ public class VisualizerAgent extends Agent {
             add(leftPanel, BorderLayout.WEST);
 
             JPanel centerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
-            centerPanel.setBackground(Color.WHITE);
-            
+            centerPanel.setBackground(currentTheme.cardBackground);
+
             // ICON BUTTONS
-            startBtn = createButton("▶", new Color(40, 167, 69));
-            pauseBtn = createButton("⏸", new Color(220, 53, 69));
-            JButton restartBtn = createButton("↺", new Color(0, 123, 255));
+            startBtn = createButton("▶", currentTheme.success);
+            pauseBtn = createButton("⏸", currentTheme.danger);
+            JButton restartBtn = createButton("↺", currentTheme.buttonBackground);
+            themeToggleBtn = createThemeToggleButton();
             pauseBtn.setEnabled(false);
 
             startBtn.addActionListener(e -> {
@@ -601,28 +865,28 @@ public class VisualizerAgent extends Agent {
                 startBtn.setEnabled(false);
                 pauseBtn.setEnabled(true);
                 statusLabel.setText("EN COURS");
-                statusLabel.setForeground(new Color(40, 167, 69));
+                statusLabel.setForeground(currentTheme.success);
             });
             pauseBtn.addActionListener(e -> {
                 stopSimulation();
                 startBtn.setEnabled(true);
                 pauseBtn.setEnabled(false);
                 statusLabel.setText("PAUSE");
-                statusLabel.setForeground(new Color(220, 53, 69));
+                statusLabel.setForeground(currentTheme.danger);
             });
             restartBtn.addActionListener(e -> {
                 stopSimulation();
                 for (jade.core.AID aid : new java.util.HashSet<>(environment.getAllAgents().keySet())) environment.unregisterAgent(aid);
                 environment.getAllFoods().clear();
-                environment.resetStats(); // reset stats
+                environment.resetStats(); // RESET STATS
                 startBtn.setEnabled(true);
                 pauseBtn.setEnabled(false);
                 statusLabel.setText("PRÊT");
-                statusLabel.setForeground(Color.GRAY);
+                statusLabel.setForeground(currentTheme.mutedText);
                 panel.repaint();
                 chart.updateData(0, 0);
                 parameterPanel.updateLiveStats(0, 0, 0);
-                statsPanel.updateStats(environment.getStats()); // reset stats ui
+                statsPanel.updateStats(environment.getStats()); // CLEAR STATS UI
                 selectedAgent = null;
                 inspectorPanel.clearInfo();
             });
@@ -630,17 +894,76 @@ public class VisualizerAgent extends Agent {
             centerPanel.add(startBtn);
             centerPanel.add(pauseBtn);
             centerPanel.add(restartBtn);
+            centerPanel.add(themeToggleBtn);
             add(centerPanel, BorderLayout.CENTER);
 
             JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
-            rightPanel.setBackground(Color.WHITE);
-            JButton addPrey = createButton("+ 🐰", new Color(34, 139, 34));
+            rightPanel.setBackground(currentTheme.cardBackground);
+            JButton addPrey = createButton("+ 🐰", currentTheme.preyColor);
             addPrey.addActionListener(e -> spawnSingleAgent("PreyAgent", "Prey"));
-            JButton addPred = createButton("+ 🦁", new Color(220, 20, 60));
+            JButton addPred = createButton("+ 🦁", currentTheme.predatorColor);
             addPred.addActionListener(e -> spawnSingleAgent("PredatorAgent", "Predator"));
             rightPanel.add(addPrey);
             rightPanel.add(addPred);
             add(rightPanel, BorderLayout.EAST);
+        }
+        
+        private JButton createThemeToggleButton() {
+            JButton btn = new JButton("🌙") {
+                protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    Color bg = isDarkMode ? currentTheme.buttonBackground : currentTheme.warning;
+                    if (getModel().isPressed()) g2.setColor(bg.darker());
+                    else g2.setColor(bg);
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                    g2.dispose();
+                    super.paintComponent(g);
+                }
+            };
+            btn.setBackground(isDarkMode ? currentTheme.buttonBackground : currentTheme.warning);
+            btn.setForeground(Color.WHITE);
+            btn.setFont(new Font("Segoe UI Symbol", Font.BOLD, 16));
+            btn.setFocusPainted(false);
+            btn.setBorderPainted(false);
+            btn.setContentAreaFilled(false);
+            btn.setPreferredSize(new Dimension(52, 36));
+            btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btn.setToolTipText("Toggle Theme");
+            
+            btn.addActionListener(e -> {
+                isDarkMode = !isDarkMode;
+                btn.setText(isDarkMode ? "☀️" : "🌙");
+                applyThemeToUI();
+            });
+            
+            return btn;
+        }
+        
+        public void updateTheme(ThemeColors t) {
+            currentTheme = t;
+            setBackground(t.cardBackground);
+            statusLabel.setForeground(t.mutedText);
+            
+            // Update all child panels
+            for (Component comp : getComponents()) {
+                if (comp instanceof JPanel) {
+                    comp.setBackground(t.cardBackground);
+                    for (Component child : ((JPanel)comp).getComponents()) {
+                        if (child instanceof JLabel) {
+                            child.setForeground(t.primaryText);
+                        }
+                    }
+                }
+            }
+            
+            // Update theme toggle button
+            if (themeToggleBtn != null) {
+                themeToggleBtn.setText(isDarkMode ? "☀️" : "🌙");
+                themeToggleBtn.setBackground(isDarkMode ? t.buttonBackground : t.warning);
+            }
+            
+            repaint();
         }
 
         private JButton createButton(String text, Color bg) {
@@ -650,7 +973,7 @@ public class VisualizerAgent extends Agent {
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     if (getModel().isPressed()) g2.setColor(bg.darker());
                     else g2.setColor(bg);
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
                     g2.dispose();
                     super.paintComponent(g);
                 }
@@ -661,11 +984,11 @@ public class VisualizerAgent extends Agent {
             btn.setFocusPainted(false);
             btn.setBorderPainted(false);
             btn.setContentAreaFilled(false);
-            btn.setPreferredSize(new Dimension(50, 34));
+            btn.setPreferredSize(new Dimension(52, 36));
             btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
             return btn;
         }
-        
+
         public void spawnInitialPopulation() {
             int preyCount = (Integer) preySpinner.getValue();
             int predatorCount = (Integer) predatorSpinner.getValue();
@@ -675,14 +998,14 @@ public class VisualizerAgent extends Agent {
 
         public void spawnSingleAgent(String className, String prefix) {
             try {
-                // randomize genetics for initial population
+                // RANDOMIZE GENETICS FOR INITIAL POPULATION
                 double baseSpeed = prefix.equals("Prey") ? SimParams.PREY_SPEED : SimParams.PRED_SPEED;
                 double baseVision = prefix.equals("Prey") ? 70.0 : 110.0;
-                
+
                 // +/- 15% variation
                 double speed = baseSpeed * (0.85 + Math.random() * 0.30);
                 double vision = baseVision * (0.85 + Math.random() * 0.30);
-                
+
                 Object[] args = new Object[]{
                         Math.random() * environment.getWidth(),
                         Math.random() * environment.getHeight(),
@@ -706,11 +1029,19 @@ public class VisualizerAgent extends Agent {
         private List<Shape> swampPuddles = new ArrayList<>();
         private List<Color> puddleColors = new ArrayList<>();
         private boolean terrainInitialized = false;
+        private ThemeColors currentTheme;
 
         public SimulationPanel() {
+            currentTheme = ThemeColors.getLightTheme();
             setPreferredSize(new Dimension(900, 650));
-            setBackground(new Color(245, 240, 235));
+            setBackground(currentTheme.grassBackground);
             setBorder(null);
+        }
+        
+        public void updateTheme(ThemeColors t) {
+            currentTheme = t;
+            setBackground(t.grassBackground);
+            repaint();
         }
 
         private void initTerrainDecorations() {
@@ -748,46 +1079,56 @@ public class VisualizerAgent extends Agent {
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             if (!terrainInitialized && environment != null) initTerrainDecorations();
-            
+
             Graphics2D g2d = (Graphics2D) g;
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            Color bgColor = new Color(245, 240, 235);
+            Color bgColor = currentTheme.grassBackground;
             switch (environment.getCurrentSeason()) {
-                case AUTUMN: bgColor = new Color(250, 235, 220); break;
-                case WINTER: bgColor = new Color(240, 245, 250); break;
+                case SPRING: 
+                    bgColor = isDarkMode ? new Color(15, 35, 25) : new Color(240, 248, 240); 
+                    break;
+                case SUMMER: 
+                    bgColor = currentTheme.grassBackground; 
+                    break;
+                case AUTUMN: 
+                    bgColor = isDarkMode ? new Color(25, 20, 15) : new Color(245, 235, 220); 
+                    break;
+                case WINTER: 
+                    bgColor = isDarkMode ? new Color(10, 15, 20) : new Color(235, 245, 250); 
+                    break;
             }
             setBackground(bgColor);
 
-            // Draw Terrain
-            g2d.setColor(new Color(101, 67, 33, 100));
+            // draw terrain
+            g2d.setColor(currentTheme.swampColor);
             for (Shape swamp : environment.getSwamps()) g2d.fill(swamp);
-            
-            g2d.setColor(new Color(128, 128, 128));
+
+            g2d.setColor(currentTheme.rockColor);
             for (Shape rock : environment.getRocks()) {
                 g2d.setColor(new Color(0,0,0,40));
                 g2d.translate(3,3); g2d.fill(rock); g2d.translate(-3,-3);
-                g2d.setColor(new Color(128,128,128)); g2d.fill(rock);
-                g2d.setColor(new Color(160,160,160)); g2d.draw(rock);
+                g2d.setColor(currentTheme.rockColor); g2d.fill(rock);
+                g2d.setColor(currentTheme.rockColor.brighter()); g2d.draw(rock);
             }
 
-            Color treeColor = new Color(34, 139, 34, 200);
+            Color treeColor = currentTheme.treeColor;
             switch (environment.getCurrentSeason()) {
-                case SUMMER: treeColor = new Color(20, 100, 20, 200); break;
-                case AUTUMN: treeColor = new Color(200, 100, 20, 200); break;
-                case WINTER: treeColor = new Color(200, 220, 220, 200); break;
+                case SUMMER: treeColor = currentTheme.treeSummer; break;
+                case AUTUMN: treeColor = currentTheme.treeAutumn; break;
+                case WINTER: treeColor = currentTheme.treeWinter; break;
             }
             for (Shape tree : environment.getTrees()) {
                 g2d.setColor(treeColor); g2d.fill(tree);
             }
 
-            // Draw Agents
+            // draw agents
             Map<jade.core.AID, AgentInfo> agents = environment.getAllAgents();
             for (Food food : environment.getAllFoods()) {
                 Position pos = food.getPosition();
                 g2d.setColor(new Color(255, 220, 0, 50));
                 g2d.fill(new Ellipse2D.Double(pos.getX()-8, pos.getY()-8, 16, 16));
-                g2d.setColor(new Color(255, 193, 7));
+                g2d.setColor(currentTheme.foodColor);
                 g2d.fill(new Ellipse2D.Double(pos.getX()-5, pos.getY()-5, 10, 10));
             }
 
@@ -795,22 +1136,22 @@ public class VisualizerAgent extends Agent {
                 Position pos = info.getPosition();
                 if (info.isPrey()) {
                     g2d.setColor(new Color(0,0,0,30)); g2d.fill(new Ellipse2D.Double(pos.getX()-5, pos.getY()-4, 10, 10));
-                    g2d.setColor(new Color(40, 167, 69)); g2d.fill(new Ellipse2D.Double(pos.getX()-6, pos.getY()-6, 12, 12));
+                    g2d.setColor(currentTheme.preyColor); g2d.fill(new Ellipse2D.Double(pos.getX()-6, pos.getY()-6, 12, 12));
                 } else {
                     g2d.setColor(new Color(0,0,0,40)); g2d.fill(new Ellipse2D.Double(pos.getX()-7, pos.getY()-6, 14, 14));
-                    g2d.setColor(new Color(220, 53, 69)); g2d.fill(new Ellipse2D.Double(pos.getX()-8, pos.getY()-8, 16, 16));
+                    g2d.setColor(currentTheme.predatorColor); g2d.fill(new Ellipse2D.Double(pos.getX()-8, pos.getY()-8, 16, 16));
                 }
-                
-                // Draw Selection Ring
+
+                // draw selection ring
                 if (selectedAgent != null && info.getAID().equals(selectedAgent.getAID())) {
-                    g2d.setColor(new Color(0, 123, 255));
+                    g2d.setColor(currentTheme.buttonBackground);
                     g2d.setStroke(new BasicStroke(2f));
                     g2d.draw(new Ellipse2D.Double(pos.getX()-12, pos.getY()-12, 24, 24));
                 }
             }
-            
-            // Season Text
-            g2d.setColor(new Color(0, 0, 0, 150));
+
+            // season text
+            g2d.setColor(isDarkMode ? new Color(220, 220, 220, 150) : new Color(0, 0, 0, 150));
             g2d.setFont(new Font("Segoe UI", Font.BOLD, 16));
             String seasonText = "";
             switch (environment.getCurrentSeason()) {
@@ -830,10 +1171,18 @@ public class VisualizerAgent extends Agent {
         private List<Integer> preyHistory = new ArrayList<>();
         private List<Integer> predatorHistory = new ArrayList<>();
         private static final int MAX_POINTS = 200;
+        private ThemeColors currentTheme;
 
         public PopulationChart() {
+            currentTheme = ThemeColors.getLightTheme();
             setPreferredSize(new Dimension(900, 200));
-            setBackground(Color.WHITE);
+            setBackground(currentTheme.cardBackground);
+        }
+        
+        public void updateTheme(ThemeColors t) {
+            currentTheme = t;
+            setBackground(t.cardBackground);
+            repaint();
         }
 
         public void updateData(int preyCount, int predatorCount) {
@@ -862,24 +1211,28 @@ public class VisualizerAgent extends Agent {
                     predatorHistory.stream().max(Integer::compareTo).orElse(1)
             ));
 
-            g2d.setColor(new Color(245, 245, 245));
+            // Grid background
+            g2d.setColor(isDarkMode ? new Color(25, 30, 40) : new Color(245, 245, 245));
             for (int i = 0; i <= 5; i++) {
                 int y = padding + i * (height - 2 * padding) / 5;
                 g2d.drawLine(padding, y, width - padding, y);
             }
 
-            g2d.setColor(new Color(200, 200, 200));
+            // Axes
+            g2d.setColor(isDarkMode ? new Color(100, 110, 120) : new Color(200, 200, 200));
             g2d.drawLine(padding, padding, padding, height - padding);
             g2d.drawLine(padding, height - padding, width - padding, height - padding);
 
             double xScale = (double) (width - 2 * padding) / MAX_POINTS;
             double yScale = (double) (height - 2 * padding) / maxPop;
 
-            g2d.setColor(new Color(40, 167, 69));
+            // Prey curve
+            g2d.setColor(currentTheme.preyColor);
             g2d.setStroke(new BasicStroke(2f));
             drawCurve(g2d, preyHistory, xScale, yScale, padding, height);
 
-            g2d.setColor(new Color(220, 53, 69));
+            // Predator curve
+            g2d.setColor(currentTheme.predatorColor);
             drawCurve(g2d, predatorHistory, xScale, yScale, padding, height);
         }
 
