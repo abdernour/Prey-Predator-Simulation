@@ -77,7 +77,8 @@ public class Environment {
             }
         }
 
-        // generate natural rock obstacles        int numRocks = 5 + rand.nextInt(3);
+        // generate natural rock obstacles
+        int numRocks = 5 + rand.nextInt(3);
         for (int i = 0; i < numRocks; i++) {
             Position center = findValidPosition(featureCenters, 100, rand);
             if (center != null) {
