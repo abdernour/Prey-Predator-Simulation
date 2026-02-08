@@ -1,4 +1,3 @@
-
 import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
 import jade.wrapper.AgentController;
@@ -18,10 +17,14 @@ public class VisualizerAgent extends Agent {
     private JFrame frame;
     private Environment environment;
     private PopulationChart chart;
+    private JPanel chartCard;
     private ControlPanel controlPanel;
     private ParameterPanel parameterPanel;
     private InspectorPanel inspectorPanel;
     private StatsPanel statsPanel;
+    private JPanel rightSidebar;
+    private JPanel centerContainer;
+    private JScrollPane paramScroll;
     private boolean isRunning = false;
     private boolean isDarkMode = false;
 
@@ -33,28 +36,28 @@ public class VisualizerAgent extends Agent {
         public Color background;
         public Color cardBackground;
         public Color panelBackground;
-        
+
         // Text colors
         public Color primaryText;
         public Color secondaryText;
         public Color mutedText;
-        
+
         // Border colors
         public Color border;
         public Color separator;
-        
+
         // Accent colors
         public Color preyColor;
         public Color predatorColor;
         public Color foodColor;
-        
+
         // UI colors
         public Color buttonBackground;
         public Color buttonText;
         public Color success;
         public Color warning;
         public Color danger;
-        
+
         // Simulation colors
         public Color grassBackground;
         public Color swampColor;
@@ -63,7 +66,7 @@ public class VisualizerAgent extends Agent {
         public Color treeSummer;
         public Color treeAutumn;
         public Color treeWinter;
-        
+
         public static ThemeColors getLightTheme() {
             ThemeColors t = new ThemeColors();
             t.background = new Color(240, 242, 245);
@@ -91,69 +94,79 @@ public class VisualizerAgent extends Agent {
             t.treeWinter = new Color(200, 220, 220, 200);
             return t;
         }
-        
+
         public static ThemeColors getDarkTheme() {
             ThemeColors t = new ThemeColors();
-            // Much darker backgrounds
-            t.background = new Color(8, 10, 12);
-            t.cardBackground = new Color(15, 18, 22);
-            t.panelBackground = new Color(15, 18, 22);
-            
+            // Material Design inspired dark theme
+            t.background = new Color(18, 18, 18);
+            t.cardBackground = new Color(30, 30, 30);
+            t.panelBackground = new Color(18, 18, 18);
+
             // Brighter text for contrast
-            t.primaryText = new Color(255, 255, 255);
-            t.secondaryText = new Color(220, 220, 220);
-            t.mutedText = new Color(160, 160, 160);
-            
+            t.primaryText = new Color(240, 240, 240);
+            t.secondaryText = new Color(180, 180, 180);
+            t.mutedText = new Color(120, 120, 120);
+
             // Clear borders
-            t.border = new Color(70, 75, 85);
-            t.separator = new Color(60, 65, 75);
-            
+            t.border = new Color(50, 50, 50);
+            t.separator = new Color(50, 50, 50);
+
             // Super vibrant accent colors
-            t.preyColor = new Color(0, 255, 100); // Neon green
-            t.predatorColor = new Color(255, 50, 100); // Hot pink/red
-            t.foodColor = new Color(255, 220, 0); // Bright yellow
-            
+            t.preyColor = new Color(100, 255, 140); // Soft Neon green
+            t.predatorColor = new Color(255, 80, 80); // Soft Red
+            t.foodColor = new Color(255, 210, 60); // Soft Yellow
+
             // Bright UI elements
-            t.buttonBackground = new Color(0, 150, 255); // Bright blue
+            t.buttonBackground = new Color(60, 140, 220); // Muted Blue
             t.buttonText = Color.WHITE;
-            t.success = new Color(0, 255, 100);
-            t.warning = new Color(255, 220, 0);
-            t.danger = new Color(255, 50, 100);
-            
+            t.success = new Color(100, 220, 120);
+            t.warning = new Color(255, 200, 60);
+            t.danger = new Color(255, 80, 80);
+
             // Dark simulation elements
-            t.grassBackground = new Color(12, 18, 22);
-            t.swampColor = new Color(30, 20, 10, 180);
-            t.rockColor = new Color(60, 60, 70);
-            t.treeColor = new Color(20, 80, 30, 230);
-            t.treeSummer = new Color(10, 60, 20, 230);
-            t.treeAutumn = new Color(120, 60, 20, 230);
-            t.treeWinter = new Color(80, 100, 100, 230);
+            t.grassBackground = new Color(22, 26, 30);
+            t.swampColor = new Color(40, 30, 20, 180);
+            t.rockColor = new Color(70, 70, 80);
+            t.treeColor = new Color(30, 90, 40, 200);
+            t.treeSummer = new Color(20, 80, 30, 200);
+            t.treeAutumn = new Color(140, 80, 30, 200);
+            t.treeWinter = new Color(100, 120, 130, 200);
             return t;
         }
     }
-    
+
     private ThemeColors currentTheme() {
         return isDarkMode ? ThemeColors.getDarkTheme() : ThemeColors.getLightTheme();
     }
-    
+
     private void applyThemeToUI() {
         ThemeColors t = currentTheme();
-        
+
         // update frame and main containers
         if (frame != null) {
             frame.getContentPane().setBackground(t.background);
         }
-        
+
         // update top bar
         if (controlPanel != null) {
             controlPanel.updateTheme(t);
         }
-        
+
         // Update center area
         if (panel != null) {
             panel.updateTheme(t);
         }
-        
+
+        // Update center container
+        if (centerContainer != null) {
+            centerContainer.setBackground(t.background);
+        }
+
+        // Update right sidebar container
+        if (rightSidebar != null) {
+            rightSidebar.setBackground(t.background);
+        }
+
         // Update right sidebar panels
         if (inspectorPanel != null) {
             inspectorPanel.updateTheme(t);
@@ -164,10 +177,20 @@ public class VisualizerAgent extends Agent {
         if (parameterPanel != null) {
             parameterPanel.updateTheme(t);
         }
-        
+
+        // Update parameter scroll pane
+        if (paramScroll != null) {
+            paramScroll.getViewport().setBackground(t.background);
+            paramScroll.setBackground(t.background);
+        }
+
         // Update chart
         if (chart != null) {
             chart.updateTheme(t);
+        }
+        if (chartCard != null) {
+            chartCard.setBorder(new LineBorder(t.border, 1, true));
+            chartCard.setBackground(t.cardBackground);
         }
     }
 
@@ -205,7 +228,7 @@ public class VisualizerAgent extends Agent {
             frame = new JFrame("Simulation Proie-Prédateur");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setLayout(new BorderLayout(0, 0));
-            
+
             ThemeColors t = currentTheme();
             frame.getContentPane().setBackground(t.background);
 
@@ -218,7 +241,7 @@ public class VisualizerAgent extends Agent {
             frame.add(topContainer, BorderLayout.NORTH);
 
             // Center simulation
-            JPanel centerContainer = new JPanel(new BorderLayout(20, 0));
+            centerContainer = new JPanel(new BorderLayout(20, 0));
             centerContainer.setBackground(t.background);
             centerContainer.setBorder(new EmptyBorder(20, 20, 20, 20));
 
@@ -243,9 +266,10 @@ public class VisualizerAgent extends Agent {
             centerContainer.add(simWrapper, BorderLayout.CENTER);
 
             // RIGHT SIDEBAR (Inspector + Stats + Parameters)
-            JPanel rightSidebar = new JPanel();
+            rightSidebar = new JPanel();
             rightSidebar.setLayout(new BoxLayout(rightSidebar, BoxLayout.Y_AXIS));
             rightSidebar.setBackground(t.background);
+            rightSidebar.setBorder(new EmptyBorder(0, 0, 0, 0)); // Remove any extra padding
 
             // Inspector Panel
             inspectorPanel = new InspectorPanel();
@@ -259,7 +283,7 @@ public class VisualizerAgent extends Agent {
 
             // Parameters Panel
             parameterPanel = new ParameterPanel();
-            JScrollPane paramScroll = new JScrollPane(parameterPanel);
+            paramScroll = new JScrollPane(parameterPanel);
             paramScroll.setPreferredSize(new Dimension(320, 300));
             paramScroll.setBorder(null);
             paramScroll.getViewport().setBackground(t.background);
@@ -277,7 +301,7 @@ public class VisualizerAgent extends Agent {
             chartWrapper.setBorder(new EmptyBorder(0, 20, 20, 20));
 
             chart = new PopulationChart();
-            JPanel chartCard = new JPanel(new BorderLayout());
+            chartCard = new JPanel(new BorderLayout());
             chartCard.add(chart);
             chartCard.setBorder(new LineBorder(t.border, 1, true));
 
@@ -390,8 +414,11 @@ public class VisualizerAgent extends Agent {
             currentTheme = ThemeColors.getLightTheme();
             setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
             setBackground(currentTheme.cardBackground);
-            setBorder(new EmptyBorder(20, 20, 20, 20));
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, 190));
+            setBorder(BorderFactory.createCompoundBorder(
+                    new LineBorder(currentTheme.border, 1, true),
+                    new EmptyBorder(20, 20, 20, 20)
+            ));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, 250));
 
             JLabel title = new JLabel("Statistiques de Décès");
             title.setFont(new Font("Segoe UI", Font.BOLD, 16));
@@ -427,12 +454,15 @@ public class VisualizerAgent extends Agent {
             add(Box.createVerticalStrut(5));
             return valueLbl;
         }
-        
+
         public void updateTheme(ThemeColors t) {
             currentTheme = t;
             setBackground(t.cardBackground);
-            setBorder(new EmptyBorder(20, 20, 20, 20));
-            
+            setBorder(BorderFactory.createCompoundBorder(
+                    new LineBorder(t.border, 1, true),
+                    new EmptyBorder(20, 20, 20, 20)
+            ));
+
             // Update all child components
             for (Component comp : getComponents()) {
                 if (comp instanceof JLabel) {
@@ -448,7 +478,7 @@ public class VisualizerAgent extends Agent {
                     }
                 }
             }
-            
+
             repaint();
         }
 
@@ -474,8 +504,11 @@ public class VisualizerAgent extends Agent {
             currentTheme = ThemeColors.getLightTheme();
             setLayout(new BorderLayout());
             setBackground(currentTheme.cardBackground);
-            setBorder(new EmptyBorder(20, 20, 20, 20));
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, 210));
+            setBorder(BorderFactory.createCompoundBorder(
+                    new LineBorder(currentTheme.border, 1, true),
+                    new EmptyBorder(20, 20, 20, 20)
+            ));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, 250));
 
             // Header
             JLabel title = new JLabel("Inspecteur");
@@ -523,12 +556,15 @@ public class VisualizerAgent extends Agent {
             contentPanel.add(speedLabel);
             contentPanel.add(visionLabel);
         }
-        
+
         public void updateTheme(ThemeColors t) {
             currentTheme = t;
             setBackground(t.cardBackground);
-            setBorder(new EmptyBorder(20, 20, 20, 20));
-            
+            setBorder(BorderFactory.createCompoundBorder(
+                    new LineBorder(t.border, 1, true),
+                    new EmptyBorder(20, 20, 20, 20)
+            ));
+
             // Update header
             for (Component comp : getComponents()) {
                 if (comp instanceof JLabel) {
@@ -536,12 +572,12 @@ public class VisualizerAgent extends Agent {
                     comp.setForeground(t.secondaryText);
                 }
             }
-            
+
             // Update empty state
             if (emptyLabel != null) {
                 emptyLabel.setForeground(t.mutedText);
             }
-            
+
             // Update content panel
             if (contentPanel != null) {
                 contentPanel.setBackground(t.cardBackground);
@@ -553,7 +589,7 @@ public class VisualizerAgent extends Agent {
                     }
                 }
             }
-            
+
             repaint();
         }
 
@@ -605,7 +641,7 @@ public class VisualizerAgent extends Agent {
         public ParameterPanel() {
             currentTheme = ThemeColors.getLightTheme();
             setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-            setBackground(currentTheme.panelBackground);
+            setBackground(currentTheme.background); // Changed from panelBackground to match container
             setBorder(new EmptyBorder(0, 0, 0, 5));
 
             JLabel title = new JLabel("Paramètres");
@@ -638,30 +674,40 @@ public class VisualizerAgent extends Agent {
             add(applyBtn);
             add(Box.createVerticalGlue());
         }
-        
+
         public void updateTheme(ThemeColors t) {
             currentTheme = t;
-            setBackground(t.panelBackground);
-            
+            setBackground(t.background); // Changed from panelBackground
+
             // Update title
             for (Component comp : getComponents()) {
                 if (comp instanceof JLabel && comp.getFont().getSize() == 20) {
                     comp.setForeground(t.primaryText);
                 }
             }
-            
+
             // Update all cards and their children
             updateAllCards(t);
-            
+
             repaint();
         }
-        
+
         private void updateAllCards(ThemeColors t) {
             for (Component comp : getComponents()) {
                 if (comp instanceof JPanel) {
                     JPanel card = (JPanel) comp;
                     card.setBackground(t.cardBackground);
-                    
+
+                    // Update border
+                    Border existing = card.getBorder();
+                    if (existing instanceof CompoundBorder) {
+                        Border inside = ((CompoundBorder)existing).getInsideBorder();
+                        card.setBorder(BorderFactory.createCompoundBorder(
+                                new LineBorder(t.border, 1, true),
+                                inside
+                        ));
+                    }
+
                     for (Component child : card.getComponents()) {
                         if (child instanceof JLabel) {
                             JLabel label = (JLabel) child;
@@ -699,7 +745,10 @@ public class VisualizerAgent extends Agent {
         private JPanel createLiveStatsCard() {
             JPanel card = new JPanel(new GridLayout(1, 3, 15, 0));
             card.setBackground(currentTheme.cardBackground);
-            card.setBorder(new EmptyBorder(20, 15, 20, 15));
+            card.setBorder(BorderFactory.createCompoundBorder(
+                    new LineBorder(currentTheme.border, 1, true),
+                    new EmptyBorder(20, 15, 20, 15)
+            ));
             card.setAlignmentX(Component.LEFT_ALIGNMENT);
             card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
 
@@ -728,25 +777,28 @@ public class VisualizerAgent extends Agent {
             JPanel card = new JPanel();
             card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
             card.setBackground(currentTheme.cardBackground);
-            card.setBorder(new EmptyBorder(20, 20, 20, 20));
+            card.setBorder(BorderFactory.createCompoundBorder(
+                    new LineBorder(currentTheme.border, 1, true),
+                    new EmptyBorder(20, 20, 20, 20)
+            ));
             card.setAlignmentX(Component.LEFT_ALIGNMENT);
             card.setMaximumSize(new Dimension(Integer.MAX_VALUE, type.equals("food") ? 200 : 280));
 
             JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
             header.setBackground(currentTheme.cardBackground);
             header.setAlignmentX(Component.LEFT_ALIGNMENT);
-            
+
             // Modern accent bar
             JPanel bar = new JPanel();
             bar.setPreferredSize(new Dimension(3, 20));
             bar.setBackground(accentColor);
             header.add(bar);
-            
+
             JLabel label = new JLabel("  " + title);
             label.setFont(new Font("Segoe UI", Font.BOLD, 15));
             label.setForeground(currentTheme.primaryText);
             header.add(label);
-            
+
             card.add(header);
             card.add(Box.createVerticalStrut(18));
 
@@ -907,7 +959,7 @@ public class VisualizerAgent extends Agent {
             rightPanel.add(addPred);
             add(rightPanel, BorderLayout.EAST);
         }
-        
+
         private JButton createThemeToggleButton() {
             JButton btn = new JButton("🌙") {
                 protected void paintComponent(Graphics g) {
@@ -930,21 +982,21 @@ public class VisualizerAgent extends Agent {
             btn.setPreferredSize(new Dimension(52, 36));
             btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
             btn.setToolTipText("Toggle Theme");
-            
+
             btn.addActionListener(e -> {
                 isDarkMode = !isDarkMode;
                 btn.setText(isDarkMode ? "☀️" : "🌙");
                 applyThemeToUI();
             });
-            
+
             return btn;
         }
-        
+
         public void updateTheme(ThemeColors t) {
             currentTheme = t;
             setBackground(t.cardBackground);
             statusLabel.setForeground(t.mutedText);
-            
+
             // Update all child panels
             for (Component comp : getComponents()) {
                 if (comp instanceof JPanel) {
@@ -956,13 +1008,13 @@ public class VisualizerAgent extends Agent {
                     }
                 }
             }
-            
+
             // Update theme toggle button
             if (themeToggleBtn != null) {
                 themeToggleBtn.setText(isDarkMode ? "☀️" : "🌙");
                 themeToggleBtn.setBackground(isDarkMode ? t.buttonBackground : t.warning);
             }
-            
+
             repaint();
         }
 
@@ -1037,7 +1089,7 @@ public class VisualizerAgent extends Agent {
             setBackground(currentTheme.grassBackground);
             setBorder(null);
         }
-        
+
         public void updateTheme(ThemeColors t) {
             currentTheme = t;
             setBackground(t.grassBackground);
@@ -1085,17 +1137,17 @@ public class VisualizerAgent extends Agent {
 
             Color bgColor = currentTheme.grassBackground;
             switch (environment.getCurrentSeason()) {
-                case SPRING: 
-                    bgColor = isDarkMode ? new Color(15, 35, 25) : new Color(240, 248, 240); 
+                case SPRING:
+                    bgColor = isDarkMode ? new Color(15, 35, 25) : new Color(240, 248, 240);
                     break;
-                case SUMMER: 
-                    bgColor = currentTheme.grassBackground; 
+                case SUMMER:
+                    bgColor = currentTheme.grassBackground;
                     break;
-                case AUTUMN: 
-                    bgColor = isDarkMode ? new Color(25, 20, 15) : new Color(245, 235, 220); 
+                case AUTUMN:
+                    bgColor = isDarkMode ? new Color(25, 20, 15) : new Color(245, 235, 220);
                     break;
-                case WINTER: 
-                    bgColor = isDarkMode ? new Color(10, 15, 20) : new Color(235, 245, 250); 
+                case WINTER:
+                    bgColor = isDarkMode ? new Color(10, 15, 20) : new Color(235, 245, 250);
                     break;
             }
             setBackground(bgColor);
@@ -1178,7 +1230,7 @@ public class VisualizerAgent extends Agent {
             setPreferredSize(new Dimension(900, 200));
             setBackground(currentTheme.cardBackground);
         }
-        
+
         public void updateTheme(ThemeColors t) {
             currentTheme = t;
             setBackground(t.cardBackground);
